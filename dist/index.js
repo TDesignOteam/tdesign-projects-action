@@ -31404,7 +31404,7 @@ const issue2Projects = async (octokit) => {
         coreExports.error('未找到 fieldId');
         return;
     }
-    const NeedToDoOptionId = queryFieldsSingleSelectOptionId(repoField.options, issueFieldType.needToDo);
+    const NeedToDoOptionId = await queryFieldsSingleSelectOptionId(repoField.options, issueFieldType.needToDo);
     const deviceField = await queryProjectField(project, 'Device');
     const deviceFieldId = deviceField?.id;
     if (!deviceFieldId) {

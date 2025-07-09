@@ -96,7 +96,10 @@ export const issue2Projects = async (octokit: Octokit) => {
     coreError('未找到 deviceFieldId');
     return;
   }
-  const DeviceOptionId = queryFieldsSingleSelectOptionId(
+
+  coreInfo(`Device select id: ${repoFields[repo as RepoKey].Device}`);
+
+  const DeviceOptionId = await queryFieldsSingleSelectOptionId(
     deviceField.options,
     repoFields[repo as RepoKey].Device
   );

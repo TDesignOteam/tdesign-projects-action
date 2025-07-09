@@ -31412,7 +31412,7 @@ const issue2Projects = async (octokit) => {
         return;
     }
     const DeviceOptionId = await queryFieldsSingleSelectOptionId(deviceField.options, repoFields[repo].Device);
-    coreExports.info(`${deviceField} is id: ${DeviceOptionId}`);
+    coreExports.info(`${repoFields[repo].Device} is id: ${DeviceOptionId}`);
     // 更新多个字段
     const updates = [
         {
@@ -31424,6 +31424,7 @@ const issue2Projects = async (octokit) => {
             value: { singleSelectOptionId: DeviceOptionId }
         }
     ];
+    coreExports.info(`updates: ${JSON.stringify(updates)}`);
     await Promise.all(updates.map(({ fieldId, value }) => octokit.graphql(`
           mutation UpdateField(
             $projectId: ID!,

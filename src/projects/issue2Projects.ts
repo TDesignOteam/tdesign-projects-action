@@ -102,7 +102,7 @@ export const issue2Projects = async (octokit: Octokit) => {
     repoFields[repo as RepoKey].Device
   );
 
-  coreInfo(`${deviceField} is id: ${DeviceOptionId}`);
+  coreInfo(`${repoFields[repo as RepoKey].Device} is id: ${DeviceOptionId}`);
 
   // 更新多个字段
   const updates = [
@@ -115,6 +115,8 @@ export const issue2Projects = async (octokit: Octokit) => {
       value: { singleSelectOptionId: DeviceOptionId }
     }
   ];
+
+  coreInfo(`updates: ${JSON.stringify(updates)}`);
 
   await Promise.all(
     updates.map(({ fieldId, value }) =>

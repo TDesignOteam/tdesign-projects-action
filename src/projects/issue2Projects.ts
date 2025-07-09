@@ -79,13 +79,12 @@ export const issue2Projects = async (octokit: Octokit) => {
     project,
     repoFields[repo as RepoKey].field
   );
-
   const fieldId = repoField?.id;
   if (!fieldId) {
     coreError('未找到 fieldId');
     return;
   }
-  const NeedToDoOptionId = await queryFieldsSingleSelectOptionId(
+  const needToDoOptionId = await queryFieldsSingleSelectOptionId(
     repoField.options,
     issueFieldType.needToDo
   );
@@ -97,22 +96,20 @@ export const issue2Projects = async (octokit: Octokit) => {
     return;
   }
 
-  const DeviceOptionId = await queryFieldsSingleSelectOptionId(
+  const deviceOptionId = await queryFieldsSingleSelectOptionId(
     deviceField.options,
     repoFields[repo as RepoKey].Device
   );
-
-  coreInfo(`DeviceOptionId: ${DeviceOptionId}`);
 
   // 更新多个字段
   const updates = [
     {
       fieldId: fieldId,
-      value: { singleSelectOptionId: NeedToDoOptionId }
+      value: { singleSelectOptionId: needToDoOptionId }
     },
     {
       fieldId: deviceFieldId,
-      value: { singleSelectOptionId: DeviceOptionId }
+      value: { singleSelectOptionId: deviceOptionId }
     }
   ];
 

@@ -31404,24 +31404,23 @@ const issue2Projects = async (octokit) => {
         coreExports.error('未找到 fieldId');
         return;
     }
-    const NeedToDoOptionId = await queryFieldsSingleSelectOptionId(repoField.options, issueFieldType.needToDo);
+    const needToDoOptionId = await queryFieldsSingleSelectOptionId(repoField.options, issueFieldType.needToDo);
     const deviceField = await queryProjectField(project, 'Device');
     const deviceFieldId = deviceField?.id;
     if (!deviceFieldId) {
         coreExports.error('未找到 deviceFieldId');
         return;
     }
-    const DeviceOptionId = await queryFieldsSingleSelectOptionId(deviceField.options, repoFields[repo].Device);
-    coreExports.info(`${repoFields[repo].Device} is id: ${DeviceOptionId}`);
+    const deviceOptionId = await queryFieldsSingleSelectOptionId(deviceField.options, repoFields[repo].Device);
     // 更新多个字段
     const updates = [
         {
             fieldId: fieldId,
-            value: { singleSelectOptionId: NeedToDoOptionId }
+            value: { singleSelectOptionId: needToDoOptionId }
         },
         {
             fieldId: deviceFieldId,
-            value: { singleSelectOptionId: DeviceOptionId }
+            value: { singleSelectOptionId: deviceOptionId }
         }
     ];
     coreExports.info(`updates: ${JSON.stringify(updates)}`);

@@ -97,12 +97,12 @@ export const issue2Projects = async (octokit: Octokit) => {
     return;
   }
 
-  coreInfo(`Device select id: ${repoFields[repo as RepoKey].Device}`);
-
   const DeviceOptionId = await queryFieldsSingleSelectOptionId(
     deviceField.options,
     repoFields[repo as RepoKey].Device
   );
+
+  coreInfo(`${deviceField} is id: ${DeviceOptionId}`);
 
   // 更新多个字段
   const updates = [

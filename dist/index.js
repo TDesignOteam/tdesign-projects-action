@@ -31411,8 +31411,8 @@ const issue2Projects = async (octokit) => {
         coreExports.error('未找到 deviceFieldId');
         return;
     }
-    coreExports.info(`Device select id: ${repoFields[repo].Device}`);
     const DeviceOptionId = await queryFieldsSingleSelectOptionId(deviceField.options, repoFields[repo].Device);
+    coreExports.info(`${deviceField} is id: ${DeviceOptionId}`);
     // 更新多个字段
     const updates = [
         {

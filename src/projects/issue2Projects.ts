@@ -79,13 +79,12 @@ export const issue2Projects = async (octokit: Octokit) => {
     project,
     repoFields[repo as RepoKey].field
   );
-
   const fieldId = repoField?.id;
   if (!fieldId) {
     coreError('未找到 fieldId');
     return;
   }
-  const NeedToDoOptionId = queryFieldsSingleSelectOptionId(
+  const needToDoOptionId = await queryFieldsSingleSelectOptionId(
     repoField.options,
     issueFieldType.needToDo
   );
@@ -96,7 +95,8 @@ export const issue2Projects = async (octokit: Octokit) => {
     coreError('未找到 deviceFieldId');
     return;
   }
-  const DeviceOptionId = queryFieldsSingleSelectOptionId(
+
+  const deviceOptionId = await queryFieldsSingleSelectOptionId(
     deviceField.options,
     repoFields[repo as RepoKey].Device
   );
@@ -105,13 +105,15 @@ export const issue2Projects = async (octokit: Octokit) => {
   const updates = [
     {
       fieldId: fieldId,
-      value: { singleSelectOptionId: NeedToDoOptionId }
+      value: { singleSelectOptionId: needToDoOptionId }
     },
     {
       fieldId: deviceFieldId,
-      value: { singleSelectOptionId: DeviceOptionId }
+      value: { singleSelectOptionId: deviceOptionId }
     }
   ];
+
+  coreInfo(`updates: ${JSON.stringify(updates)}`);
 
   await Promise.all(
     updates.map(({ fieldId, value }) =>

@@ -1,23 +1,20 @@
-name: The name of your action here
-description: Provide a description here
-author: Your name or organization here
+name: tdesign-projects-action
+description: Only for TDesign's project management automation ci
+author: TDesignOteam
 
 # Add your action's branding here. This will appear on the GitHub Marketplace.
 branding:
-  icon: heart
-  color: red
+  icon: list
+  color: blue
 
 # Define your inputs here.
 inputs:
-  milliseconds:
-    description: Your input description here
+  PROJECT_TYPE:
+    description: >
+      `ISSUE2PROJECTS`: add issue to Projects;  
+      `PRLINKISSUE`: the operation performed when PR is linked to issue
     required: true
-    default: '1000'
-
-# Define your outputs here.
-outputs:
-  time:
-    description: Your output description here
+    default: 'ISSUE2PROJECTS'
 
 runs:
   using: node20

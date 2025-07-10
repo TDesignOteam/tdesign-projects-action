@@ -31469,13 +31469,14 @@ async function run() {
     try {
         const token = coreExports.getInput('GH_TOKEN') ||
             process.env?.GH_TOKEN ||
-            process?.env.GITHUB_TOKEN;
+            process.env?.GITHUB_TOKEN;
         if (!token) {
             coreExports.setFailed('GH_TOKEN is not set');
             return;
         }
         const octokit = githubExports.getOctokit(token);
-        const PROJECT_TYPE = coreExports.getInput('PROJECT_TYPE');
+        const PROJECT_TYPE = (coreExports.getInput('PROJECT_TYPE') ||
+            process.env?.PROJECT_TYPE);
         coreExports.info(`PROJECT_TYPE: ${PROJECT_TYPE}`);
         if (PROJECT_TYPE === 'ISSUE2PROJECTS') {
             await issue2Projects(octokit);

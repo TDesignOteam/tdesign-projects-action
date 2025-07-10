@@ -31,7 +31,7 @@ export const pr2Issue = async (octokit: Octokit) => {
       )
       .map((event) => 'source' in event && event.source?.issue?.number);
 
-    coreInfo(`linkedIssues: ${linkedIssues}`);
+    coreInfo(`linkedIssues: ${JSON.stringify(linkedIssues, null, 2)}`);
   } catch (error) {
     console.error('Failed to get linked issues:', error);
   }

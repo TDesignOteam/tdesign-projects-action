@@ -13,8 +13,6 @@ inputs:
     description: >
       `ISSUE2PROJECTS`: add issue to Projects;  
       `PR2ISSUE`: the operation performed when PR is linked to issue
-    required: true
-    default: 'ISSUE2PROJECTS'
 
 runs:
   using: node20

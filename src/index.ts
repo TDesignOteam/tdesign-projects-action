@@ -9,8 +9,8 @@ type ProjectType = 'ISSUE2PROJECTS' | 'PR2ISSUE';
 async function run(): Promise<void> {
   try {
     const token =
-      getInput('GH_TOKEN') ||
       process.env?.GH_TOKEN ||
+      getInput('GH_TOKEN') ||
       process.env?.GITHUB_TOKEN;
     if (!token) {
       coreSetFailed('GH_TOKEN is not set');
@@ -19,8 +19,8 @@ async function run(): Promise<void> {
 
     const octokit = getOctokit(token);
 
-    const PROJECT_TYPE = (getInput('PROJECT_TYPE') ||
-      process.env?.PROJECT_TYPE) as ProjectType;
+    const PROJECT_TYPE = (process.env?.PROJECT_TYPE ||
+      getInput('PROJECT_TYPE')) as ProjectType;
 
     coreInfo(`PROJECT_TYPE: ${PROJECT_TYPE}`);
 

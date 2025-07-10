@@ -31465,6 +31465,11 @@ const pr2Issue = async (octokit) => {
               reviews(last: 100) {
                 nodes {
                   body
+                  comments {
+                    nodes {
+                      body
+                    }
+                  }
                 }
               }
             }

@@ -44,6 +44,11 @@ export const pr2Issue = async (octokit: Octokit) => {
               reviews(last: 100) {
                 nodes {
                   body
+                  comments {
+                    nodes {
+                      body
+                    }
+                  }
                 }
               }
             }

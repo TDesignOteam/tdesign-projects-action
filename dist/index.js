@@ -31445,6 +31445,26 @@ const issue2Projects = async (octokit) => {
     })));
 };
 
+const pr2Issue = async (octokit) => {
+    const { owner, repo } = githubExports.context.repo;
+    const prNumber = githubExports.context.payload.pull_request?.number;
+    if (!prNumber) {
+        coreExports.error('pr number is null');
+        return;
+    }
+    try {
+        const events = await octokit.paginate(octokit.rest.issues.listEventsForTimeline, {
+            owner,
+            repo,
+            issue_number: prNumber
+        });
+        coreExports.info(JSON.stringify(events));
+    }
+    catch (error) {
+        console.error('Failed to get linked issues:', error);
+    }
+};
+
 async function run() {
     try {
         const token = coreExports.getInput('GH_TOKEN') ||
@@ -31461,11 +31481,12 @@ async function run() {
             await issue2Projects(octokit);
             return;
         }
-        if (PROJECT_TYPE === 'PRLINKISSUE') {
-            coreExports.info('PRLINKISSUE');
+        if (PROJECT_TYPE === 'PR2ISSUE') {
+            coreExports.info('PR2ISSUE');
+            await pr2Issue(octokit);
             return;
         }
-        coreExports.setFailed("PROJECT_TYPE is not valid, not 'ISSUE2PROJECTS' or 'PRLINKISSUE'");
+        coreExports.setFailed("PROJECT_TYPE is not valid, not 'ISSUE2PROJECTS' or 'PR2ISSUE'");
     }
     catch (error) {
         if (error instanceof Error) {

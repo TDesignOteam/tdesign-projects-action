@@ -2,8 +2,9 @@ import { getInput } from '@actions/core';
 import { coreInfo, coreSetFailed } from './utils/coreAlias.js';
 import { getOctokit } from '@actions/github';
 import { issue2Projects } from './projects/issue2Projects.js';
+import { pr2Issue } from './projects/pr2Issue.js';
 
-type ProjectType = 'ISSUE2PROJECTS' | 'PRLINKISSUE';
+type ProjectType = 'ISSUE2PROJECTS' | 'PR2ISSUE';
 
 async function run(): Promise<void> {
   try {
@@ -25,13 +26,14 @@ async function run(): Promise<void> {
       await issue2Projects(octokit);
       return;
     }
-    if (PROJECT_TYPE === 'PRLINKISSUE') {
-      coreInfo('PRLINKISSUE');
+    if (PROJECT_TYPE === 'PR2ISSUE') {
+      coreInfo('PR2ISSUE');
+      await pr2Issue(octokit);
       return;
     }
 
     coreSetFailed(
-      "PROJECT_TYPE is not valid, not 'ISSUE2PROJECTS' or 'PRLINKISSUE'"
+      "PROJECT_TYPE is not valid, not 'ISSUE2PROJECTS' or 'PR2ISSUE'"
     );
   } catch (error: unknown) {
     if (error instanceof Error) {

@@ -31453,12 +31453,19 @@ const pr2Issue = async (octokit) => {
         return;
     }
     try {
-        const events = await octokit.paginate(octokit.rest.issues.listEventsForTimeline, {
+        const timeline = await octokit.paginate(octokit.rest.issues.listEventsForTimeline, {
             owner,
             repo,
             issue_number: prNumber
         });
-        coreExports.info(JSON.stringify(events));
+        coreExports.info(`timeline: ${JSON.stringify(timeline, null, 2)}`);
+        const linkedIssues = timeline
+            .filter((event) => event.event === 'cross-referenced' &&
+            'source' in event &&
+            event.source?.issue &&
+            !event.source.issue.pull_request)
+            .map((event) => 'source' in event && event.source?.issue?.number);
+        coreExports.info(`linkedIssues: ${linkedIssues}`);
     }
     catch (error) {
         console.error('Failed to get linked issues:', error);

@@ -11,7 +11,7 @@ export const pr2Issue = async (octokit: Octokit) => {
     return;
   }
   try {
-    const events = await octokit.paginate(
+    const timeline = await octokit.paginate(
       octokit.rest.issues.listEventsForTimeline,
       {
         owner,
@@ -19,7 +19,19 @@ export const pr2Issue = async (octokit: Octokit) => {
         issue_number: prNumber
       }
     );
-    coreInfo(JSON.stringify(events));
+    coreInfo(`timeline: ${JSON.stringify(timeline, null, 2)}`);
+
+    const linkedIssues = timeline
+      .filter(
+        (event) =>
+          event.event === 'cross-referenced' &&
+          'source' in event &&
+          event.source?.issue &&
+          !event.source.issue.pull_request
+      )
+      .map((event) => 'source' in event && event.source?.issue?.number);
+
+    coreInfo(`linkedIssues: ${linkedIssues}`);
   } catch (error) {
     console.error('Failed to get linked issues:', error);
   }

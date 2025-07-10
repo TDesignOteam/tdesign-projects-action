@@ -26,8 +26,8 @@ export const pr2Issue = async (octokit: Octokit) => {
         (event) =>
           event.event === 'cross-referenced' &&
           'source' in event &&
-          event.source?.issue &&
-          !event.source.issue.pull_request
+          event.source?.issue
+        // &&!event.source.issue.pull_request
       )
       .map((event) => 'source' in event && event.source?.issue?.number);
 

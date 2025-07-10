@@ -29,31 +29,36 @@ export const pr2Issue = async (octokit: Octokit) => {
 
   try {
     const query = `
-        query GetPRDetails($owner: String!, $repo: String!, $prNumber: Int!) {
-          repository(owner: $owner, name: $repo) {
-            pullRequest(number: $prNumber) {
-              title
-              body
-              commits(first: 100) {
-                nodes {
-                  commit {
-                    message
-                  }
+      query GetPRDetails($owner: String!, $repo: String!, $prNumber: Int!) {
+        repository(owner: $owner, name: $repo) {
+          pullRequest(number: $prNumber) {
+            title
+            body
+            commits(first: 100) {
+              nodes {
+                commit {
+                  message
                 }
               }
-              reviews(last: 100) {
-                nodes {
-                  body
-                  comments(first: 100) {
-                    nodes {
-                      body
-                    }
+            }
+            reviews(last: 100) {
+              nodes {
+                body
+                comments(first: 100) {
+                  nodes {
+                    body
                   }
                 }
               }
             }
+            comments(first: 100) {
+              nodes {
+                body
+              }
+            }
           }
         }
+      }
       `;
 
     const result = await octokit.graphql<PRDetailsQueryResult>(query, {

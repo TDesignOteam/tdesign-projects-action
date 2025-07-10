@@ -31460,9 +31460,9 @@ const pr2Issue = async (octokit) => {
         });
         coreExports.info(`timeline: ${JSON.stringify(timeline, null, 2)}`);
         const linkedIssues = timeline
-            .filter((event) => event.event === 'cross-referenced' &&
-            'source' in event &&
-            event.source?.issue
+            .filter((event) => event.event === 'cross-referenced'
+        // && 'source' in event
+        // &&  event.source?.issue
         // &&!event.source.issue.pull_request
         )
             .map((event) => 'source' in event && event.source?.issue?.number);

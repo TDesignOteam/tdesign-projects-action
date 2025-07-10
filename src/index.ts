@@ -21,13 +21,13 @@ async function run(): Promise<void> {
 
     const PROJECT_TYPE = getInput('PROJECT_TYPE') as ProjectType;
 
+    coreInfo(`PROJECT_TYPE: ${PROJECT_TYPE}`);
+
     if (PROJECT_TYPE === 'ISSUE2PROJECTS') {
-      coreInfo('ISSUE2PROJECTS');
       await issue2Projects(octokit);
       return;
     }
     if (PROJECT_TYPE === 'PR2ISSUE') {
-      coreInfo('PR2ISSUE');
       await pr2Issue(octokit);
       return;
     }

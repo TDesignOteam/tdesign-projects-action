@@ -31476,13 +31476,12 @@ async function run() {
         }
         const octokit = githubExports.getOctokit(token);
         const PROJECT_TYPE = coreExports.getInput('PROJECT_TYPE');
+        coreExports.info(`PROJECT_TYPE: ${PROJECT_TYPE}`);
         if (PROJECT_TYPE === 'ISSUE2PROJECTS') {
-            coreExports.info('ISSUE2PROJECTS');
             await issue2Projects(octokit);
             return;
         }
         if (PROJECT_TYPE === 'PR2ISSUE') {
-            coreExports.info('PR2ISSUE');
             await pr2Issue(octokit);
             return;
         }

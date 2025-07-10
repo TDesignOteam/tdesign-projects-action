@@ -1,8 +1,8 @@
 import { getInput } from '@actions/core';
-import { coreInfo, coreSetFailed } from './utils/coreAlias.js';
+import { coreInfo, coreSetFailed } from './utils/coreAlias';
 import { getOctokit } from '@actions/github';
-import { issue2Projects } from './projects/issue2Projects.js';
-import { pr2Issue } from './projects/pr2Issue.js';
+import { issue2Projects } from './projects/issue2Projects';
+import { pr2Issue } from './projects/pr2Issue';
 
 type ProjectType = 'ISSUE2PROJECTS' | 'PR2ISSUE';
 

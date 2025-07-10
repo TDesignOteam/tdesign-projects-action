@@ -31448,25 +31448,35 @@ const issue2Projects = async (octokit) => {
 const pr2Issue = async (octokit) => {
     const { owner, repo } = githubExports.context.repo;
     const prNumber = githubExports.context.payload.pull_request?.number;
-    if (!prNumber) {
-        coreExports.error('pr number is null');
-        return;
-    }
     try {
-        const timeline = await octokit.paginate(octokit.rest.issues.listEventsForTimeline, {
+        const query = `
+        query GetPRDetails($owner: String!, $repo: String!, $prNumber: Int!) {
+          repository(owner: $owner, name: $repo) {
+            pullRequest(number: $prNumber) {
+              title
+              body
+              commits(first: 100) {
+                nodes {
+                  commit {
+                    message
+                  }
+                }
+              }
+              reviews(last: 100) {
+                nodes {
+                  body
+                }
+              }
+            }
+          }
+        }
+      `;
+        const result = await octokit.graphql(query, {
             owner,
             repo,
-            issue_number: prNumber
+            prNumber
         });
-        coreExports.info(`timeline: ${JSON.stringify(timeline, null, 2)}`);
-        const linkedIssues = timeline
-            .filter((event) => event.event === 'cross-referenced'
-        // && 'source' in event
-        // &&  event.source?.issue
-        // &&!event.source.issue.pull_request
-        )
-            .map((event) => 'source' in event && event.source?.issue?.number);
-        coreExports.info(`linkedIssues: ${JSON.stringify(linkedIssues, null, 2)}`);
+        coreExports.info(`PR Details: ${JSON.stringify(result, null, 2)}`);
     }
     catch (error) {
         console.error('Failed to get linked issues:', error);

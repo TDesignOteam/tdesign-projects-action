@@ -31512,6 +31512,7 @@ const pr2Issue = async (octokit) => {
       ${result.repository?.pullRequest?.body || ''}
       ${result.repository?.pullRequest?.commits.nodes.map((commit) => commit.commit.message).join('\n') || ''}
       ${result.repository?.pullRequest?.reviews.nodes.map((review) => review.body).join('\n') || ''}
+      ${result.repository?.pullRequest?.reviews.nodes.flatMap((review) => review.comments.nodes.map((comment) => comment.body)).join('\n') || ''}
       ${result.repository?.pullRequest?.comments.nodes.map((comment) => comment.body).join('\n') || ''}
     `;
         const issues = extractIssueNumber(prResultMessageStr, owner, repo);

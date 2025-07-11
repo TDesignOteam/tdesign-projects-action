@@ -45,6 +45,11 @@ type PRDetailsQueryResult = {
       reviews: {
         nodes: Array<{
           body: string;
+          comments: {
+            nodes: Array<{
+              body: string;
+            }>;
+          };
         }>;
       };
       comments: {
@@ -105,6 +110,7 @@ export const pr2Issue = async (octokit: Octokit) => {
       ${result.repository?.pullRequest?.body || ''}
       ${result.repository?.pullRequest?.commits.nodes.map((commit) => commit.commit.message).join('\n') || ''}
       ${result.repository?.pullRequest?.reviews.nodes.map((review) => review.body).join('\n') || ''}
+      ${result.repository?.pullRequest?.reviews.nodes.flatMap((review) => review.comments.nodes.map((comment) => comment.body)).join('\n') || ''}
       ${result.repository?.pullRequest?.comments.nodes.map((comment) => comment.body).join('\n') || ''}
     `;
 

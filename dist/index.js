@@ -31574,7 +31574,6 @@ const pr2Issue = async (octokit) => {
         coreExports.info(`PR #${prNumber} linked issues: ${issues.join(', ')}`);
         const project = await getOrgProjectV2(octokit, owner, 1);
         const projectNodeId = await queryProjectNodeId(project);
-        coreExports.info(`Project node id: ${typeof projectNodeId} ${projectNodeId}`);
         if (!projectNodeId) {
             coreExports.error('Project node id ${projectNodeId} is null');
             return;
@@ -31586,6 +31585,7 @@ const pr2Issue = async (octokit) => {
         }
         //  将每个 issue 都在 projects 内查找有没有对应 issue
         projectItems?.items.nodes.forEach((item) => {
+            coreExports.info(`Project item id: ${item.id}`);
             issues.forEach((issue) => {
                 if (item.id.includes(`${issue})`)) {
                     coreExports.info(`Found linked issue #${issue} in project items.`);

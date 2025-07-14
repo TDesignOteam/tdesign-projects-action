@@ -1,3 +1,6 @@
+/**
+ * 仓库字段映射
+ */
 export const repoFields = {
   'tdesign-vue-next': {
     field: 'Vue 3 状态',
@@ -23,11 +26,19 @@ export const repoFields = {
     field: 'Vue 2 状态',
     Device: 'Mobile'
   }
-};
+} as const;
 
+/**
+ *  仓库 key 类型
+ */
+export type RepoKey = keyof typeof repoFields;
+
+/**
+ * 任务字段类型
+ */
 export const issueFieldType = {
   needToDo: 'need to do',
   inProgress: 'in progress',
   finished: 'finished',
   noPlan: 'no plan'
-};
+} as const;

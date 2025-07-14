@@ -1,4 +1,4 @@
-import { coreError } from '../coreAlias';
+import { coreError } from '../../coreAlias';
 
 /**
  * 查询单选字段选项 ID

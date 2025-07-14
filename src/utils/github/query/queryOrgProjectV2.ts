@@ -1,4 +1,4 @@
-import { ProjectV2, Octokit } from '../../types/index';
+import { ProjectV2, Octokit } from '../../../types/index';
 import { info as coreInfo, error as coreError } from '@actions/core';
 
 /**

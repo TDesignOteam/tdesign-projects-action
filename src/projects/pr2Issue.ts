@@ -1,6 +1,7 @@
 import { context } from '@actions/github';
 import { Octokit } from '../types';
 import { coreInfo } from '../utils/coreAlias';
+import { getProjectV2Items } from '../utils/github/queryProjectV2Items';
 
 /*
  * @description 只匹配当前仓库的 issue
@@ -116,6 +117,28 @@ export const pr2Issue = async (octokit: Octokit) => {
 
     const issues = extractIssueNumber(prResultMessageStr, owner, repo);
     coreInfo(`PR #${prNumber} linked issues: ${issues.join(', ')}`);
+
+    let projectItems = await getProjectV2Items(octokit, 'org', 123, 100);
+
+    // 如果有下一页，继续查询
+    while (projectItems?.items.pageInfo.hasNextPage) {
+      projectItems = await getProjectV2Items(
+        octokit,
+        'org',
+        123,
+        100,
+        projectItems.items.pageInfo.endCursor
+      );
+    }
+
+    //  将每个 issue 都在 projects 内查找有没有对应 issue
+    projectItems?.items.nodes.forEach((item) => {
+      issues.forEach((issue) => {
+        if (item.id.includes(`${issue})`)) {
+          coreInfo(`Found linked issue #${issue} in project items.`);
+        }
+      });
+    });
   } catch (error) {
     console.error('Failed to get linked issues:', error);
   }

@@ -128,20 +128,27 @@ export const pr2Issue = async (octokit: Octokit) => {
       return;
     }
 
-    let projectItems = await getProjectV2Items(octokit, projectNodeId, 100);
+    const allProjectItems = await getProjectV2Items(
+      octokit,
+      projectNodeId,
+      100
+    );
 
     // 如果有下一页，继续查询
-    while (projectItems?.items.pageInfo.hasNextPage) {
-      projectItems = await getProjectV2Items(
+    while (allProjectItems?.items.pageInfo.hasNextPage) {
+      const projectItems = await getProjectV2Items(
         octokit,
         projectNodeId,
         100,
-        projectItems.items.pageInfo.endCursor
+        allProjectItems.items.pageInfo.endCursor
       );
+      allProjectItems.items.nodes.push(...(projectItems?.items?.nodes || []));
     }
 
+    coreInfo(`Project items: ${JSON.stringify(allProjectItems, null, 2)}`);
+
     //  将每个 issue 都在 projects 内查找有没有对应 issue
-    projectItems?.items.nodes.forEach((item) => {
+    allProjectItems?.items.nodes.forEach((item) => {
       coreInfo(`Project item id: ${item.id}`);
       issues.forEach((issue) => {
         if (item.id.includes(`${issue})`)) {

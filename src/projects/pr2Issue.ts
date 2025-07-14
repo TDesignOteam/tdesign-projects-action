@@ -2,6 +2,8 @@ import { context } from '@actions/github';
 import { Octokit } from '../types';
 import { coreInfo } from '../utils/coreAlias';
 import { getProjectV2Items } from '../utils/github/queryProjectV2Items';
+import { queryProjectNodeId } from '../utils/github/queryProjectNodeId';
+import { getOrgProjectV2 } from '../utils/github/queryOrgProjectV2';
 
 /*
  * @description 只匹配当前仓库的 issue
@@ -118,7 +120,17 @@ export const pr2Issue = async (octokit: Octokit) => {
     const issues = extractIssueNumber(prResultMessageStr, owner, repo);
     coreInfo(`PR #${prNumber} linked issues: ${issues.join(', ')}`);
 
-    let projectItems = await getProjectV2Items(octokit, 'org', 123, 100);
+    const project = await getOrgProjectV2(octokit, owner, 1);
+    const projectNodeId = await queryProjectNodeId(project);
+
+    coreInfo(`Project node id: ${typeof projectNodeId} ${projectNodeId}`);
+
+    let projectItems = await getProjectV2Items(
+      octokit,
+      owner,
+      Number(projectNodeId),
+      100
+    );
 
     // 如果有下一页，继续查询
     while (projectItems?.items.pageInfo.hasNextPage) {

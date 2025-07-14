@@ -31560,7 +31560,10 @@ const pr2Issue = async (octokit) => {
     `;
         const issues = extractIssueNumber(prResultMessageStr, owner, repo);
         coreExports.info(`PR #${prNumber} linked issues: ${issues.join(', ')}`);
-        let projectItems = await getProjectV2Items(octokit, 'org', 123, 100);
+        const project = await getOrgProjectV2(octokit, owner, 1);
+        const projectNodeId = await queryProjectNodeId(project);
+        coreExports.info(`Project node id: ${typeof projectNodeId} ${projectNodeId}`);
+        let projectItems = await getProjectV2Items(octokit, owner, Number(projectNodeId), 100);
         // 如果有下一页，继续查询
         while (projectItems?.items.pageInfo.hasNextPage) {
             projectItems = await getProjectV2Items(octokit, 'org', 123, 100, projectItems.items.pageInfo.endCursor);

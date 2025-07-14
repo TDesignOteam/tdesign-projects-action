@@ -31561,6 +31561,8 @@ const extractIssueNumber = (extractBody, owner, repo) => {
 const pr2Issue = async (octokit) => {
     const { owner, repo } = githubExports.context.repo;
     const prNumber = githubExports.context.payload.pull_request?.number;
+    const eventAction = githubExports.context.payload.action;
+    const isMerged = githubExports.context.payload.pull_request?.merged;
     try {
         const query = `
       query GetPRDetails($owner: String!, $repo: String!, $prNumber: Int!) {
@@ -31634,10 +31636,35 @@ const pr2Issue = async (octokit) => {
                     coreExports.error('未找到 fieldId');
                     return;
                 }
+                const needToDoOptionId = await queryFieldsSingleSelectOptionId(repoField.options, issueFieldType.needToDo);
                 const inProgressOptionId = await queryFieldsSingleSelectOptionId(repoField.options, issueFieldType.inProgress);
-                updateSingleSelectOptionField(octokit, projectNodeId, projectItems?.item?.node_id, fieldId, {
-                    singleSelectOptionId: inProgressOptionId
-                });
+                const finishedOptionId = await queryFieldsSingleSelectOptionId(repoField.options, issueFieldType.finished);
+                if (!needToDoOptionId || !inProgressOptionId || !finishedOptionId) {
+                    coreExports.error('未找到所需的选项ID');
+                    return;
+                }
+                let singleSelectOptionId = { singleSelectOptionId: '' };
+                // 判断具体状态
+                if (eventAction === 'opened') {
+                    coreExports.info('PR被打开');
+                    singleSelectOptionId = { singleSelectOptionId: inProgressOptionId };
+                }
+                else if (eventAction === 'closed' && isMerged) {
+                    coreExports.info('PR被合并');
+                    singleSelectOptionId = { singleSelectOptionId: finishedOptionId };
+                }
+                else if (eventAction === 'closed' && !isMerged) {
+                    coreExports.info('PR被关闭但未合并');
+                    singleSelectOptionId = { singleSelectOptionId: needToDoOptionId };
+                }
+                else if (eventAction === 'reopened') {
+                    singleSelectOptionId = { singleSelectOptionId: inProgressOptionId };
+                    coreExports.info('PR被重新打开');
+                }
+                else {
+                    coreExports.info(`未匹配到事件: ${eventAction}`);
+                }
+                updateSingleSelectOptionField(octokit, projectNodeId, projectItems?.item?.node_id, fieldId, singleSelectOptionId);
             }
         });
     }

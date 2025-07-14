@@ -72,6 +72,9 @@ export const pr2Issue = async (octokit: Octokit) => {
   const { owner, repo } = context.repo;
   const prNumber = context.payload.pull_request?.number;
 
+  const eventAction = context.payload.action;
+  const isMerged = context.payload.pull_request?.merged;
+
   try {
     const query = `
       query GetPRDetails($owner: String!, $repo: String!, $prNumber: Int!) {
@@ -168,19 +171,51 @@ export const pr2Issue = async (octokit: Octokit) => {
           coreError('未找到 fieldId');
           return;
         }
+
+        const needToDoOptionId = await queryFieldsSingleSelectOptionId(
+          repoField.options,
+          issueFieldType.needToDo
+        );
+
         const inProgressOptionId = await queryFieldsSingleSelectOptionId(
           repoField.options,
           issueFieldType.inProgress
         );
+
+        const finishedOptionId = await queryFieldsSingleSelectOptionId(
+          repoField.options,
+          issueFieldType.finished
+        );
+
+        if (!needToDoOptionId || !inProgressOptionId || !finishedOptionId) {
+          coreError('未找到所需的选项ID');
+          return;
+        }
+
+        let singleSelectOptionId = { singleSelectOptionId: '' };
+        // 判断具体状态
+        if (eventAction === 'opened') {
+          coreInfo('PR被打开');
+          singleSelectOptionId = { singleSelectOptionId: inProgressOptionId };
+        } else if (eventAction === 'closed' && isMerged) {
+          coreInfo('PR被合并');
+          singleSelectOptionId = { singleSelectOptionId: finishedOptionId };
+        } else if (eventAction === 'closed' && !isMerged) {
+          coreInfo('PR被关闭但未合并');
+          singleSelectOptionId = { singleSelectOptionId: needToDoOptionId };
+        } else if (eventAction === 'reopened') {
+          singleSelectOptionId = { singleSelectOptionId: inProgressOptionId };
+          coreInfo('PR被重新打开');
+        } else {
+          coreInfo(`未匹配到事件: ${eventAction}`);
+        }
 
         updateSingleSelectOptionField(
           octokit,
           projectNodeId,
           projectItems?.item?.node_id,
           fieldId,
-          {
-            singleSelectOptionId: inProgressOptionId
-          }
+          singleSelectOptionId
         );
       }
     });

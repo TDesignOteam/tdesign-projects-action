@@ -1,5 +1,5 @@
-import { coreInfo, coreError } from '../coreAlias';
-import { ProjectV2 } from '../../types/index';
+import { coreInfo, coreError } from '../../coreAlias';
+import { ProjectV2 } from '../../../types/index';
 
 /**
  * 查询 field 项目字段

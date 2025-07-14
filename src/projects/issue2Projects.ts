@@ -1,11 +1,11 @@
 import { AddProjectV2ItemResult, Octokit } from '../types/index';
 import { context } from '@actions/github';
 import { coreError, coreInfo } from '../utils/coreAlias';
-import { getOrgProjectV2 } from '../utils/github/queryOrgProjectV2';
-import { queryProjectNodeId } from '../utils/github/queryProjectNodeId';
-import { queryProjectField } from '../utils/github/queryProjectField';
+import { getOrgProjectV2 } from '../utils/github/query/queryOrgProjectV2';
+import { queryProjectNodeId } from '../utils/github/shared/queryProjectNodeId';
+import { queryProjectField } from '../utils/github/shared/queryProjectField';
 import { issueFieldType, repoFields } from '../utils';
-import { queryFieldsSingleSelectOptionId } from '../utils/github/queryFieldsSingleSelectOptionId';
+import { queryFieldsSingleSelectOptionId } from '../utils/github/shared/queryFieldsSingleSelectOptionId';
 
 type RepoKey = keyof typeof repoFields;
 

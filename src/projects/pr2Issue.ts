@@ -1,8 +1,9 @@
 import { context } from '@actions/github';
 import { Octokit } from '../types';
-import { coreInfo } from '../utils/coreAlias';
-// import { queryIssueNodeId } from '../utils/github/queryIssueNodeId';
-import { queryIssueInProjectV2Items } from '../utils/github/queryIssueInProjectV2Items';
+import { coreError, coreInfo } from '../utils/coreAlias';
+import { queryIssueInProjectV2Items } from '../utils/github/query/queryIssueInProjectV2Items';
+import { getOrgProjectV2 } from '../utils/github/query/queryOrgProjectV2';
+import { queryProjectNodeId } from '../utils/github/shared/queryProjectNodeId';
 
 /*
  * @description 只匹配当前仓库的 issue
@@ -119,22 +120,36 @@ export const pr2Issue = async (octokit: Octokit) => {
     const issues = extractIssueNumber(prResultMessageStr, owner, repo);
     coreInfo(`PR #${prNumber} linked issues: ${issues.join(', ')}`);
 
-    issues.forEach(async (issueNumber) => {
-      // const issueNodeId = await queryIssueNodeId(
-      //   octokit,
-      //   owner,
-      //   repo,
-      //   issueNumber
-      // );
+    const project = await getOrgProjectV2(octokit, owner, 1);
 
+    if (!project) {
+      coreError('未提供 Project 对象');
+      return null;
+    }
+
+    const projectNodeId = await queryProjectNodeId(project);
+
+    if (!projectNodeId) {
+      coreError('未查询到 project ID');
+      return null;
+    }
+
+    issues.forEach(async (issueNumber) => {
       const projectItems = await queryIssueInProjectV2Items(
         octokit,
         owner,
         repo,
+        projectNodeId,
         issueNumber
       );
 
       coreInfo(`Project item: ${JSON.stringify(projectItems, null, 2)}`);
+
+      if (projectItems.isInProject) {
+        coreInfo(
+          `Issue #${issueNumber} already in project node id: ${projectNodeId}, item id: ${projectItems?.item?.node_id}`
+        );
+      }
     });
   } catch (error) {
     console.error('Failed to get linked issues:', error);

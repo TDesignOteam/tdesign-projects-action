@@ -1,4 +1,4 @@
-import { Octokit } from '../../types/index';
+import { Octokit } from '../../../types/index';
 import { info as coreInfo, error as coreError } from '@actions/core';
 
 /**
@@ -65,6 +65,7 @@ export async function queryIssueNodeId(
 
     const { id, number, title } = result.repository.issue;
     coreInfo(`成功获取 Issue #${number}: ${title} => Node ID: ${id}`);
+
     return id;
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);

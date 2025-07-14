@@ -1,5 +1,5 @@
-import { Octokit } from '../../types/index';
-import { coreInfo, coreError } from '../coreAlias';
+import { Octokit } from '../../../types/index';
+import { coreInfo, coreError } from '../../coreAlias';
 
 /**
  * 项目项信息
@@ -39,6 +39,7 @@ export interface QueryIssueInProjectV2Items {
  * @param octokit GitHub Octokit 实例
  * @param owner 仓库所有者
  * @param repo 仓库名称
+ * @param projectNodeId 项目 Node ID
  * @param issueNumber Issue 编号
  * @returns 包含是否关联的标志和项目项信息（如果存在）
  */
@@ -46,6 +47,7 @@ export async function queryIssueInProjectV2Items(
   octokit: Octokit,
   owner: string,
   repo: string,
+  projectNodeId: string,
   issueNumber: number
 ): Promise<{ isInProject: boolean; item?: ProjectItemInfo }> {
   // 验证参数
@@ -102,9 +104,15 @@ export async function queryIssueInProjectV2Items(
     }
 
     // 获取关联项目的数量
-    const isInProject = issue.projectItems.totalCount > 0;
+    const hasInProject = issue.projectItems.totalCount > 0;
+    const isMatchedProject = issue.projectItems.nodes.some((item) => {
+      coreInfo(`关联项目项: node_id=${item.id}, project=${item.project.title}`);
+      return item.project.id === projectNodeId;
+    });
+
+    const isInProject = hasInProject && isMatchedProject;
     coreInfo(
-      `Issue #${issueNumber} ${isInProject ? '已关联' : '未关联'} Project V2`
+      `Issue #${issueNumber} ${isInProject && isMatchedProject ? '已关联' : '未关联'} Project V2: ${projectNodeId}`
     );
 
     // 如果有关联项目，返回项目项信息

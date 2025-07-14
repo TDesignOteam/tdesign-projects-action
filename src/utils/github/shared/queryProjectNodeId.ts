@@ -1,6 +1,6 @@
-import { coreSetFailed } from '../coreAlias';
-import { coreInfo } from '../coreAlias';
-import { ProjectV2 } from '../../types';
+import { coreSetFailed } from '../../coreAlias';
+import { coreInfo } from '../../coreAlias';
+import { ProjectV2 } from '../../../types';
 
 /**
  * 查询项目 Project node_id

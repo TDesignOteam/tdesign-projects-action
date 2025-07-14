@@ -31450,10 +31450,11 @@ const issue2Projects = async (octokit) => {
  * @param octokit GitHub Octokit 实例
  * @param owner 仓库所有者
  * @param repo 仓库名称
+ * @param projectNodeId 项目 Node ID
  * @param issueNumber Issue 编号
  * @returns 包含是否关联的标志和项目项信息（如果存在）
  */
-async function queryIssueInProjectV2Items(octokit, owner, repo, issueNumber) {
+async function queryIssueInProjectV2Items(octokit, owner, repo, projectNodeId, issueNumber) {
     // 验证参数
     if (!owner || !repo || !issueNumber || issueNumber <= 0) {
         coreExports.error(`无效的参数: owner=${owner}, repo=${repo}, issueNumber=${issueNumber}`);
@@ -31495,8 +31496,13 @@ async function queryIssueInProjectV2Items(octokit, owner, repo, issueNumber) {
             return { isInProject: false };
         }
         // 获取关联项目的数量
-        const isInProject = issue.projectItems.totalCount > 0;
-        coreExports.info(`Issue #${issueNumber} ${isInProject ? '已关联' : '未关联'} Project V2`);
+        const hasInProject = issue.projectItems.totalCount > 0;
+        const isMatchedProject = issue.projectItems.nodes.some((item) => {
+            coreExports.info(`关联项目项: node_id=${item.id}, project=${item.project.title}`);
+            return item.project.id === projectNodeId;
+        });
+        const isInProject = hasInProject && isMatchedProject;
+        coreExports.info(`Issue #${issueNumber} ${isInProject && isMatchedProject ? '已关联' : '未关联'} Project V2: ${projectNodeId}`);
         // 如果有关联项目，返回项目项信息
         if (isInProject) {
             const firstItem = issue.projectItems.nodes[0];
@@ -31591,15 +31597,22 @@ const pr2Issue = async (octokit) => {
     `;
         const issues = extractIssueNumber(prResultMessageStr, owner, repo);
         coreExports.info(`PR #${prNumber} linked issues: ${issues.join(', ')}`);
+        const project = await getOrgProjectV2(octokit, owner, 1);
+        if (!project) {
+            coreExports.error('未提供 Project 对象');
+            return null;
+        }
+        const projectNodeId = await queryProjectNodeId(project);
+        if (!projectNodeId) {
+            coreExports.error('未查询到 project ID');
+            return null;
+        }
         issues.forEach(async (issueNumber) => {
-            // const issueNodeId = await queryIssueNodeId(
-            //   octokit,
-            //   owner,
-            //   repo,
-            //   issueNumber
-            // );
-            const projectItems = await queryIssueInProjectV2Items(octokit, owner, repo, issueNumber);
+            const projectItems = await queryIssueInProjectV2Items(octokit, owner, repo, projectNodeId, issueNumber);
             coreExports.info(`Project item: ${JSON.stringify(projectItems, null, 2)}`);
+            if (projectItems.isInProject) {
+                coreExports.info(`Issue #${issueNumber} already in project node id: ${projectNodeId}, item id: ${projectItems?.item?.node_id}`);
+            }
         });
     }
     catch (error) {

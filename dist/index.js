@@ -31305,6 +31305,9 @@ async function queryProjectField(project, fieldName) {
     }
 }
 
+/**
+ * 仓库字段映射
+ */
 const repoFields = {
     'tdesign-vue-next': {
         field: 'Vue 3 状态',
@@ -31331,8 +31334,15 @@ const repoFields = {
         Device: 'Mobile'
     }
 };
+/**
+ * 任务字段类型
+ */
 const issueFieldType = {
-    needToDo: 'need to do'};
+    needToDo: 'need to do',
+    inProgress: 'in progress',
+    finished: 'finished',
+    noPlan: 'no plan'
+};
 
 /**
  * 查询单选字段选项 ID
@@ -31348,6 +31358,26 @@ const queryFieldsSingleSelectOptionId = async (options, filedName) => {
     }
     return NeedToDoOption.id;
 };
+
+const updateSingleSelectOptionField = (octokit, projectNodeId, itemId, fieldId, value) => octokit.graphql(`
+      mutation UpdateField(
+        $projectId: ID!,
+        $itemId: ID!,
+        $fieldId: ID!,
+        $value: ProjectV2FieldValue!
+      ) {
+        updateProjectV2ItemFieldValue(
+          input: { projectId: $projectId, itemId: $itemId, fieldId: $fieldId, value: $value }
+        ) {
+          projectV2Item { id }
+        }
+      }
+    `, {
+    projectId: projectNodeId,
+    itemId,
+    fieldId,
+    value
+});
 
 const issue2Projects = async (octokit) => {
     const { owner, repo, number: issue_number } = githubExports.context.issue;
@@ -31424,25 +31454,7 @@ const issue2Projects = async (octokit) => {
         }
     ];
     coreExports.info(`updates: ${JSON.stringify(updates)}`);
-    await Promise.all(updates.map(({ fieldId, value }) => octokit.graphql(`
-          mutation UpdateField(
-            $projectId: ID!,
-            $itemId: ID!,
-            $fieldId: ID!,
-            $value: ProjectV2FieldValue!
-          ) {
-            updateProjectV2ItemFieldValue(
-              input: { projectId: $projectId, itemId: $itemId, fieldId: $fieldId, value: $value }
-            ) {
-              projectV2Item { id }
-            }
-          }
-        `, {
-        projectId: projectNodeId,
-        itemId,
-        fieldId,
-        value
-    })));
+    await Promise.all(updates.map(({ fieldId, value }) => updateSingleSelectOptionField(octokit, projectNodeId, itemId, fieldId, value)));
 };
 
 /**
@@ -31612,6 +31624,20 @@ const pr2Issue = async (octokit) => {
             coreExports.info(`Project item: ${JSON.stringify(projectItems, null, 2)}`);
             if (projectItems.isInProject) {
                 coreExports.info(`Issue #${issueNumber} already in project node id: ${projectNodeId}, item id: ${projectItems?.item?.node_id}`);
+                if (!projectItems?.item?.node_id) {
+                    coreExports.error('未找到 project item id');
+                    return;
+                }
+                const repoField = await queryProjectField(project, repoFields[repo].field);
+                const fieldId = repoField?.id;
+                if (!fieldId) {
+                    coreExports.error('未找到 fieldId');
+                    return;
+                }
+                const inProgressOptionId = await queryFieldsSingleSelectOptionId(repoField.options, issueFieldType.inProgress);
+                updateSingleSelectOptionField(octokit, projectNodeId, projectItems?.item?.node_id, fieldId, {
+                    singleSelectOptionId: inProgressOptionId
+                });
             }
         });
     }

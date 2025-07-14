@@ -4,10 +4,9 @@ import { coreError, coreInfo } from '../utils/coreAlias';
 import { getOrgProjectV2 } from '../utils/github/query/queryOrgProjectV2';
 import { queryProjectNodeId } from '../utils/github/shared/queryProjectNodeId';
 import { queryProjectField } from '../utils/github/shared/queryProjectField';
-import { issueFieldType, repoFields } from '../utils';
+import { issueFieldType, repoFields, RepoKey } from '../utils';
 import { queryFieldsSingleSelectOptionId } from '../utils/github/shared/queryFieldsSingleSelectOptionId';
-
-type RepoKey = keyof typeof repoFields;
+import { updateSingleSelectOptionField } from '../utils/github/updates/updateField';
 
 export const issue2Projects = async (octokit: Octokit) => {
   const { owner, repo, number: issue_number } = context.issue;
@@ -117,27 +116,12 @@ export const issue2Projects = async (octokit: Octokit) => {
 
   await Promise.all(
     updates.map(({ fieldId, value }) =>
-      octokit.graphql(
-        `
-          mutation UpdateField(
-            $projectId: ID!,
-            $itemId: ID!,
-            $fieldId: ID!,
-            $value: ProjectV2FieldValue!
-          ) {
-            updateProjectV2ItemFieldValue(
-              input: { projectId: $projectId, itemId: $itemId, fieldId: $fieldId, value: $value }
-            ) {
-              projectV2Item { id }
-            }
-          }
-        `,
-        {
-          projectId: projectNodeId,
-          itemId,
-          fieldId,
-          value
-        }
+      updateSingleSelectOptionField(
+        octokit,
+        projectNodeId,
+        itemId,
+        fieldId,
+        value
       )
     )
   );

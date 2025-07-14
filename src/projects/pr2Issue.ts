@@ -4,6 +4,10 @@ import { coreError, coreInfo } from '../utils/coreAlias';
 import { queryIssueInProjectV2Items } from '../utils/github/query/queryIssueInProjectV2Items';
 import { getOrgProjectV2 } from '../utils/github/query/queryOrgProjectV2';
 import { queryProjectNodeId } from '../utils/github/shared/queryProjectNodeId';
+import { queryProjectField } from '../utils/github/shared/queryProjectField';
+import { queryFieldsSingleSelectOptionId } from '../utils/github/shared/queryFieldsSingleSelectOptionId';
+import { issueFieldType, repoFields, RepoKey } from '../utils';
+import { updateSingleSelectOptionField } from '../utils/github/updates/updateField';
 
 /*
  * @description 只匹配当前仓库的 issue
@@ -148,6 +152,35 @@ export const pr2Issue = async (octokit: Octokit) => {
       if (projectItems.isInProject) {
         coreInfo(
           `Issue #${issueNumber} already in project node id: ${projectNodeId}, item id: ${projectItems?.item?.node_id}`
+        );
+
+        if (!projectItems?.item?.node_id) {
+          coreError('未找到 project item id');
+          return;
+        }
+
+        const repoField = await queryProjectField(
+          project,
+          repoFields[repo as RepoKey].field
+        );
+        const fieldId = repoField?.id;
+        if (!fieldId) {
+          coreError('未找到 fieldId');
+          return;
+        }
+        const inProgressOptionId = await queryFieldsSingleSelectOptionId(
+          repoField.options,
+          issueFieldType.inProgress
+        );
+
+        updateSingleSelectOptionField(
+          octokit,
+          projectNodeId,
+          projectItems?.item?.node_id,
+          fieldId,
+          {
+            singleSelectOptionId: inProgressOptionId
+          }
         );
       }
     });

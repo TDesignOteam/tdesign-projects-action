@@ -4,7 +4,7 @@ import { info as coreInfo, error as coreError } from '@actions/core';
 /**
  * 获取 Issue Node ID 的结果接口
  */
-export interface GetIssueNodeIdResult {
+export interface QueryIssueNodeId {
   repository?: {
     issue?: {
       id: string; // Issue 的全局 Node ID
@@ -22,7 +22,7 @@ export interface GetIssueNodeIdResult {
  * @param issueNumber - Issue 数字编号
  * @returns Promise<string> - 解析为 Issue 的 Node ID
  */
-export async function getIssueNodeId(
+export async function queryIssueNodeId(
   octokit: Octokit,
   owner: string,
   repo: string,
@@ -50,7 +50,7 @@ export async function getIssueNodeId(
   `;
 
   try {
-    const result = await octokit.graphql<GetIssueNodeIdResult>(query, {
+    const result = await octokit.graphql<QueryIssueNodeId>(query, {
       owner,
       repo,
       issueNumber

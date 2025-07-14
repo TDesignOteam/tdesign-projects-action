@@ -31453,7 +31453,7 @@ const issue2Projects = async (octokit) => {
  * @param issueNumber - Issue 数字编号
  * @returns Promise<string> - 解析为 Issue 的 Node ID
  */
-async function getIssueNodeId(octokit, owner, repo, issueNumber) {
+async function queryIssueNodeId(octokit, owner, repo, issueNumber) {
     // 参数验证
     if (!owner || !repo || !issueNumber || issueNumber <= 0) {
         const errorMsg = `无效参数: owner=${owner}, repo=${repo}, issueNumber=${issueNumber}`;
@@ -31518,8 +31518,12 @@ async function queryProjectV2Item(octokit, issueNodeId) {
           projectItems(first: 1) {
             totalCount
             nodes {
-              id   # 项目项的 node_id
-              url  # 项目项的 URL
+              id
+              content {
+                ... on Issue {
+                  url
+                }
+              }
             }
           }
         }
@@ -31633,7 +31637,7 @@ const pr2Issue = async (octokit) => {
         const issues = extractIssueNumber(prResultMessageStr, owner, repo);
         coreExports.info(`PR #${prNumber} linked issues: ${issues.join(', ')}`);
         issues.forEach(async (issueNumber) => {
-            const issueNodeId = await getIssueNodeId(octokit, owner, repo, issueNumber);
+            const issueNodeId = await queryIssueNodeId(octokit, owner, repo, issueNumber);
             const projectItem = await queryProjectV2Item(octokit, issueNodeId);
             coreExports.info(`Project item: ${JSON.stringify(projectItem, null, 2)}`);
         });

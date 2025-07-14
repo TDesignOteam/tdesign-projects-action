@@ -1,7 +1,7 @@
 import { context } from '@actions/github';
 import { Octokit } from '../types';
 import { coreInfo } from '../utils/coreAlias';
-import { getIssueNodeId } from '../utils/github/getIssueNodeId';
+import { queryIssueNodeId } from '../utils/github/queryIssueNodeId';
 import { queryProjectV2Item } from '../utils/github/queryProjectV2Item';
 
 /*
@@ -120,7 +120,7 @@ export const pr2Issue = async (octokit: Octokit) => {
     coreInfo(`PR #${prNumber} linked issues: ${issues.join(', ')}`);
 
     issues.forEach(async (issueNumber) => {
-      const issueNodeId = await getIssueNodeId(
+      const issueNodeId = await queryIssueNodeId(
         octokit,
         owner,
         repo,

@@ -55,8 +55,12 @@ export async function queryProjectV2Item(
           projectItems(first: 1) {
             totalCount
             nodes {
-              id   # 项目项的 node_id
-              url  # 项目项的 URL
+              id
+              content {
+                ... on Issue {
+                  url
+                }
+              }
             }
           }
         }

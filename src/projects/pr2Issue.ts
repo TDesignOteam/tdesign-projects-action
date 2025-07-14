@@ -1,6 +1,6 @@
 import { context } from '@actions/github';
 import { Octokit } from '../types';
-import { coreInfo } from '../utils/coreAlias';
+import { coreError, coreInfo } from '../utils/coreAlias';
 import { getProjectV2Items } from '../utils/github/queryProjectV2Items';
 import { queryProjectNodeId } from '../utils/github/queryProjectNodeId';
 import { getOrgProjectV2 } from '../utils/github/queryOrgProjectV2';
@@ -125,19 +125,18 @@ export const pr2Issue = async (octokit: Octokit) => {
 
     coreInfo(`Project node id: ${typeof projectNodeId} ${projectNodeId}`);
 
-    let projectItems = await getProjectV2Items(
-      octokit,
-      owner,
-      Number(projectNodeId),
-      100
-    );
+    if (!projectNodeId) {
+      coreError('Project node id ${projectNodeId} is null');
+      return;
+    }
+
+    let projectItems = await getProjectV2Items(octokit, projectNodeId, 100);
 
     // 如果有下一页，继续查询
     while (projectItems?.items.pageInfo.hasNextPage) {
       projectItems = await getProjectV2Items(
         octokit,
-        'org',
-        123,
+        projectNodeId,
         100,
         projectItems.items.pageInfo.endCursor
       );

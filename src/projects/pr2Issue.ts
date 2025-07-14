@@ -1,8 +1,8 @@
 import { context } from '@actions/github';
 import { Octokit } from '../types';
 import { coreInfo } from '../utils/coreAlias';
-import { queryIssueNodeId } from '../utils/github/queryIssueNodeId';
-import { queryProjectV2Item } from '../utils/github/queryProjectV2Item';
+// import { queryIssueNodeId } from '../utils/github/queryIssueNodeId';
+import { queryIssueInProjectV2Items } from '../utils/github/queryIssueInProjectV2Items';
 
 /*
  * @description 只匹配当前仓库的 issue
@@ -120,15 +120,21 @@ export const pr2Issue = async (octokit: Octokit) => {
     coreInfo(`PR #${prNumber} linked issues: ${issues.join(', ')}`);
 
     issues.forEach(async (issueNumber) => {
-      const issueNodeId = await queryIssueNodeId(
+      // const issueNodeId = await queryIssueNodeId(
+      //   octokit,
+      //   owner,
+      //   repo,
+      //   issueNumber
+      // );
+
+      const projectItems = await queryIssueInProjectV2Items(
         octokit,
         owner,
         repo,
         issueNumber
       );
 
-      const projectItem = await queryProjectV2Item(octokit, issueNodeId);
-      coreInfo(`Project item: ${JSON.stringify(projectItem, null, 2)}`);
+      coreInfo(`Project item: ${JSON.stringify(projectItems, null, 2)}`);
     });
   } catch (error) {
     console.error('Failed to get linked issues:', error);

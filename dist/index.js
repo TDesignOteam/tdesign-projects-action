@@ -31446,33 +31446,80 @@ const issue2Projects = async (octokit) => {
 };
 
 /**
- * @param octokit GitHub Octokit instance
- * @param projectNodeId Project Node ID (not the number from URL)
- * @param first Number of items to fetch
- * @param after Cursor for pagination
- * @returns Project V2 items result
+ * 获取指定 Issue 的 Node ID
+ * @param octokit - GitHub Octokit 实例
+ * @param owner - 仓库所有者
+ * @param repo - 仓库名称
+ * @param issueNumber - Issue 数字编号
+ * @returns Promise<string> - 解析为 Issue 的 Node ID
  */
-async function getProjectV2Items(octokit, projectNodeId, first = 100, after) {
-    // 验证 projectNodeId 是否为有效的 Node ID
-    if (!projectNodeId ||
-        typeof projectNodeId !== 'string' ||
-        projectNodeId.trim() === '') {
-        coreExports.error(`无效的项目 Node ID: ${projectNodeId}`);
-        throw new Error(`Invalid project node ID: ${projectNodeId}`);
+async function getIssueNodeId(octokit, owner, repo, issueNumber) {
+    // 参数验证
+    if (!owner || !repo || !issueNumber || issueNumber <= 0) {
+        const errorMsg = `无效参数: owner=${owner}, repo=${repo}, issueNumber=${issueNumber}`;
+        coreExports.error(errorMsg);
+        throw new Error(errorMsg);
     }
-    coreExports.info(`查询项目 Node ID: ${projectNodeId}`);
+    coreExports.info(`查询仓库 ${owner}/${repo} 的 Issue #${issueNumber}`);
     const query = `
-    query ($projectNodeId: ID!, $first: Int!, $after: String) {
-      node(id: $projectNodeId) {
-        ... on ProjectV2 {
+    query ($owner: String!, $repo: String!, $issueNumber: Int!) {
+      repository(owner: $owner, name: $repo) {
+        issue(number: $issueNumber) {
           id
-          items(first: $first, after: $after) {
-            pageInfo {
-              hasNextPage
-              endCursor
-            }
+          number
+          title
+        }
+      }
+    }
+  `;
+    try {
+        const result = await octokit.graphql(query, {
+            owner,
+            repo,
+            issueNumber
+        });
+        // 检查结果有效性
+        if (!result?.repository?.issue?.id) {
+            const errorMsg = `未找到 Issue #${issueNumber} 或缺少 ID`;
+            coreExports.error(errorMsg);
+            throw new Error(errorMsg);
+        }
+        const { id, number, title } = result.repository.issue;
+        coreExports.info(`成功获取 Issue #${number}: ${title} => Node ID: ${id}`);
+        return id;
+    }
+    catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        coreExports.error(`获取 Issue Node ID 失败: ${errorMessage}`);
+        throw error;
+    }
+}
+
+/**
+ * 检查指定 Issue 是否在 GitHub Project V2 中，并返回关联的项目项信息
+ * @param octokit GitHub Octokit 实例
+ * @param issueNodeId Issue 的 Node ID
+ * @returns 包含是否关联的标志和项目项信息（如果存在）
+ */
+async function queryProjectV2Item(octokit, issueNodeId) {
+    // 验证 issueNodeId 是否为有效的 Node ID
+    if (!issueNodeId ||
+        typeof issueNodeId !== 'string' ||
+        issueNodeId.trim() === '') {
+        coreExports.error(`无效的 Issue Node ID: ${issueNodeId}`);
+        throw new Error(`Invalid issue node ID: ${issueNodeId}`);
+    }
+    coreExports.info(`检查 Issue Node ID: ${issueNodeId} 是否关联 Project V2`);
+    const query = `
+    query ($issueNodeId: ID!) {
+      node(id: $issueNodeId) {
+        ... on Issue {
+          id
+          projectItems(first: 1) {
+            totalCount
             nodes {
-              id
+              id   # 项目项的 node_id
+              url  # 项目项的 URL
             }
           }
         }
@@ -31481,21 +31528,34 @@ async function getProjectV2Items(octokit, projectNodeId, first = 100, after) {
   `;
     try {
         const result = await octokit.graphql(query, {
-            projectNodeId,
-            first,
-            after
+            issueNodeId
         });
-        const project = result?.node;
-        if (!project) {
-            coreExports.error(`未找到对应的 Project, Node ID: ${projectNodeId}`);
-            return;
+        // 检查节点是否存在且是 Issue
+        const issueNode = result?.node;
+        if (!issueNode || !issueNode.projectItems) {
+            coreExports.info(`未找到对应的 Issue 或 Project 关联数据, Node ID: ${issueNodeId}`);
+            return { isInProject: false };
         }
-        coreExports.info(`获取 Project Node ID: ${project.id}`);
-        coreExports.info(`获取到 ${project.items.nodes.length} 个 items`);
-        return project;
+        // 获取关联项目的数量
+        const isInProject = issueNode.projectItems.totalCount > 0;
+        coreExports.info(`Issue ${isInProject ? '已关联' : '未关联'} Project V2`);
+        // 如果有关联项目，返回项目项信息
+        if (isInProject) {
+            const firstItem = issueNode.projectItems.nodes[0];
+            coreExports.info(`关联项目项: node_id=${firstItem.id}, url=${firstItem.url}`);
+            return {
+                isInProject: true,
+                item: {
+                    node_id: firstItem.id,
+                    url: firstItem.url
+                }
+            };
+        }
+        return { isInProject: false };
     }
     catch (error) {
-        coreExports.error(`查询 Project V2 items 失败: ${error instanceof Error ? error.message : String(error)}`);
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        coreExports.error(`检查 Issue 是否在 Project V2 中失败: ${errorMessage}`);
         throw error;
     }
 }
@@ -31572,27 +31632,10 @@ const pr2Issue = async (octokit) => {
     `;
         const issues = extractIssueNumber(prResultMessageStr, owner, repo);
         coreExports.info(`PR #${prNumber} linked issues: ${issues.join(', ')}`);
-        const project = await getOrgProjectV2(octokit, owner, 1);
-        const projectNodeId = await queryProjectNodeId(project);
-        if (!projectNodeId) {
-            coreExports.error('Project node id ${projectNodeId} is null');
-            return;
-        }
-        const allProjectItems = await getProjectV2Items(octokit, projectNodeId, 100);
-        // 如果有下一页，继续查询
-        while (allProjectItems?.items.pageInfo.hasNextPage) {
-            const projectItems = await getProjectV2Items(octokit, projectNodeId, 100, allProjectItems.items.pageInfo.endCursor);
-            allProjectItems.items.nodes.push(...(projectItems?.items?.nodes || []));
-        }
-        coreExports.info(`Project items: ${JSON.stringify(allProjectItems, null, 2)}`);
-        //  将每个 issue 都在 projects 内查找有没有对应 issue
-        allProjectItems?.items.nodes.forEach((item) => {
-            coreExports.info(`Project item id: ${item.id}`);
-            issues.forEach((issue) => {
-                if (item.id.includes(`${issue})`)) {
-                    coreExports.info(`Found linked issue #${issue} in project items.`);
-                }
-            });
+        issues.forEach(async (issueNumber) => {
+            const issueNodeId = await getIssueNodeId(octokit, owner, repo, issueNumber);
+            const projectItem = await queryProjectV2Item(octokit, issueNodeId);
+            coreExports.info(`Project item: ${JSON.stringify(projectItem, null, 2)}`);
         });
     }
     catch (error) {

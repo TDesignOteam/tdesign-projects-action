@@ -1,9 +1,8 @@
 import { context } from '@actions/github';
 import { Octokit } from '../types';
-import { coreError, coreInfo } from '../utils/coreAlias';
-import { getProjectV2Items } from '../utils/github/queryProjectV2Items';
-import { queryProjectNodeId } from '../utils/github/queryProjectNodeId';
-import { getOrgProjectV2 } from '../utils/github/queryOrgProjectV2';
+import { coreInfo } from '../utils/coreAlias';
+import { getIssueNodeId } from '../utils/github/getIssueNodeId';
+import { queryProjectV2Item } from '../utils/github/queryProjectV2Item';
 
 /*
  * @description 只匹配当前仓库的 issue
@@ -120,41 +119,16 @@ export const pr2Issue = async (octokit: Octokit) => {
     const issues = extractIssueNumber(prResultMessageStr, owner, repo);
     coreInfo(`PR #${prNumber} linked issues: ${issues.join(', ')}`);
 
-    const project = await getOrgProjectV2(octokit, owner, 1);
-    const projectNodeId = await queryProjectNodeId(project);
-
-    if (!projectNodeId) {
-      coreError('Project node id ${projectNodeId} is null');
-      return;
-    }
-
-    const allProjectItems = await getProjectV2Items(
-      octokit,
-      projectNodeId,
-      100
-    );
-
-    // 如果有下一页，继续查询
-    while (allProjectItems?.items.pageInfo.hasNextPage) {
-      const projectItems = await getProjectV2Items(
+    issues.forEach(async (issueNumber) => {
+      const issueNodeId = await getIssueNodeId(
         octokit,
-        projectNodeId,
-        100,
-        allProjectItems.items.pageInfo.endCursor
+        owner,
+        repo,
+        issueNumber
       );
-      allProjectItems.items.nodes.push(...(projectItems?.items?.nodes || []));
-    }
 
-    coreInfo(`Project items: ${JSON.stringify(allProjectItems, null, 2)}`);
-
-    //  将每个 issue 都在 projects 内查找有没有对应 issue
-    allProjectItems?.items.nodes.forEach((item) => {
-      coreInfo(`Project item id: ${item.id}`);
-      issues.forEach((issue) => {
-        if (item.id.includes(`${issue})`)) {
-          coreInfo(`Found linked issue #${issue} in project items.`);
-        }
-      });
+      const projectItem = await queryProjectV2Item(octokit, issueNodeId);
+      coreInfo(`Project item: ${JSON.stringify(projectItem, null, 2)}`);
     });
   } catch (error) {
     console.error('Failed to get linked issues:', error);

@@ -15,11 +15,14 @@ export const issueTrigger = async (octokit: Octokit, projectId: number) => {
       issue_number
     });
 
-    const hasTargetLabel = issueDetail.labels.some((label) =>
-      typeof label === 'string'
-        ? label === 'to be published'
-        : label.name === 'to be published'
-    );
+    const hasTargetLabel = issueDetail.labels.some((label) => {
+      if (typeof label === 'string') {
+        coreInfo(`label: ${label}`);
+        return label === 'to be published';
+      }
+      coreInfo(`label: ${label.name}`);
+      return label.name === 'to be published';
+    });
 
     if (issueDetail.state === 'closed' && !hasTargetLabel) {
       const project = await getOrgProjectV2(octokit, owner, projectId);
@@ -42,8 +45,10 @@ export const issueTrigger = async (octokit: Octokit, projectId: number) => {
         issue_number
       );
 
+      coreInfo(`Project item: ${JSON.stringify(projectItems, null, 2)}`);
+
       coreInfo(
-        `即将将 issue ${issue_number} (node ID: ${projectItems.item?.node_id}) 从项目中移除`
+        `即将将 issue ${issue_number} (node ID: ${projectItems.item?.node_id}) 从项目 ${projectNodeId} 中移除`
       );
 
       await octokit.graphql(

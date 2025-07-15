@@ -31736,9 +31736,14 @@ const issueTrigger = async (octokit, projectId) => {
             repo,
             issue_number
         });
-        const hasTargetLabel = issueDetail.labels.some((label) => typeof label === 'string'
-            ? label === 'to be published'
-            : label.name === 'to be published');
+        const hasTargetLabel = issueDetail.labels.some((label) => {
+            if (typeof label === 'string') {
+                coreExports.info(`label: ${label}`);
+                return label === 'to be published';
+            }
+            coreExports.info(`label: ${label.name}`);
+            return label.name === 'to be published';
+        });
         if (issueDetail.state === 'closed' && !hasTargetLabel) {
             const project = await getOrgProjectV2(octokit, owner, projectId);
             if (!project) {
@@ -31751,7 +31756,8 @@ const issueTrigger = async (octokit, projectId) => {
                 return null;
             }
             const projectItems = await queryIssueInProjectV2Items(octokit, owner, repo, projectNodeId, issue_number);
-            coreExports.info(`即将将 issue ${issue_number} (node ID: ${projectItems.item?.node_id}) 从项目中移除`);
+            coreExports.info(`Project item: ${JSON.stringify(projectItems, null, 2)}`);
+            coreExports.info(`即将将 issue ${issue_number} (node ID: ${projectItems.item?.node_id}) 从项目 ${projectNodeId} 中移除`);
             await octokit.graphql(`
           mutation RemoveFromProject($projectId: ID!, $itemId: ID!) {
             deleteProjectV2Item(input: { projectId: $projectId, itemId: $itemId }) {

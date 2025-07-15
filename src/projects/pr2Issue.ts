@@ -68,7 +68,7 @@ type PRDetailsQueryResult = {
   } | null;
 };
 
-export const pr2Issue = async (octokit: Octokit) => {
+export const pr2Issue = async (octokit: Octokit, projectId: number) => {
   const { owner, repo } = context.repo;
   const prNumber = context.payload.pull_request?.number;
 
@@ -127,7 +127,7 @@ export const pr2Issue = async (octokit: Octokit) => {
     const issues = extractIssueNumber(prResultMessageStr, owner, repo);
     coreInfo(`PR #${prNumber} linked issues: ${issues.join(', ')}`);
 
-    const project = await getOrgProjectV2(octokit, owner, 1);
+    const project = await getOrgProjectV2(octokit, owner, projectId);
 
     if (!project) {
       coreError('未提供 Project 对象');

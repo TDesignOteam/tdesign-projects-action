@@ -13,7 +13,7 @@ import {
 import { queryFieldsSingleSelectOptionId } from '../utils/github/shared/queryFieldsSingleSelectOptionId';
 import { updateSingleSelectOptionField } from '../utils/github/updates/updateField';
 
-export const issue2Projects = async (octokit: Octokit) => {
+export const issue2Projects = async (octokit: Octokit, projectId: number) => {
   const { owner, repo, number: issue_number } = context.issue;
   const labelList = await octokit.rest.issues.listLabelsOnIssue({
     owner,
@@ -45,7 +45,7 @@ export const issue2Projects = async (octokit: Octokit) => {
 
   coreInfo(`开始查询项目...`);
 
-  const project = await getOrgProjectV2(octokit, owner, 1);
+  const project = await getOrgProjectV2(octokit, owner, projectId);
   if (!project) {
     coreError('未提供 Project 对象');
     return null;

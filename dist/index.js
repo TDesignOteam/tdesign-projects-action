@@ -31385,7 +31385,7 @@ const updateSingleSelectOptionField = (octokit, projectNodeId, itemId, fieldId, 
     value
 });
 
-const issue2Projects = async (octokit) => {
+const issue2Projects = async (octokit, projectId) => {
     const { owner, repo, number: issue_number } = githubExports.context.issue;
     const labelList = await octokit.rest.issues.listLabelsOnIssue({
         owner,
@@ -31407,7 +31407,7 @@ const issue2Projects = async (octokit) => {
         return;
     }
     coreExports.info(`开始查询项目...`);
-    const project = await getOrgProjectV2(octokit, owner, 1);
+    const project = await getOrgProjectV2(octokit, owner, projectId);
     if (!project) {
         coreExports.error('未提供 Project 对象');
         return null;
@@ -31597,7 +31597,7 @@ const extractIssueNumber = (extractBody, owner, repo) => {
     }
     return issues;
 };
-const pr2Issue = async (octokit) => {
+const pr2Issue = async (octokit, projectId) => {
     const { owner, repo } = githubExports.context.repo;
     const prNumber = githubExports.context.payload.pull_request?.number;
     const eventAction = githubExports.context.payload.action;
@@ -31650,7 +31650,7 @@ const pr2Issue = async (octokit) => {
     `;
         const issues = extractIssueNumber(prResultMessageStr, owner, repo);
         coreExports.info(`PR #${prNumber} linked issues: ${issues.join(', ')}`);
-        const project = await getOrgProjectV2(octokit, owner, 1);
+        const project = await getOrgProjectV2(octokit, owner, projectId);
         if (!project) {
             coreExports.error('未提供 Project 对象');
             return null;
@@ -31724,13 +31724,14 @@ async function run() {
         const octokit = githubExports.getOctokit(token);
         const PROJECT_TYPE = (process.env?.PROJECT_TYPE ||
             coreExports.getInput('PROJECT_TYPE'));
+        const PROJECT_ID = process.env?.PROJECT_ID || coreExports.getInput('PROJECT_ID') || 1;
         coreExports.info(`PROJECT_TYPE: ${PROJECT_TYPE}`);
         if (PROJECT_TYPE === 'ISSUE2PROJECTS') {
-            await issue2Projects(octokit);
+            await issue2Projects(octokit, Number(PROJECT_ID));
             return;
         }
         if (PROJECT_TYPE === 'PR2ISSUE') {
-            await pr2Issue(octokit);
+            await pr2Issue(octokit, Number(PROJECT_ID));
             return;
         }
         coreExports.setFailed("PROJECT_TYPE is not valid, not 'ISSUE2PROJECTS' or 'PR2ISSUE'");

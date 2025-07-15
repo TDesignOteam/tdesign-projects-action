@@ -22,14 +22,16 @@ async function run(): Promise<void> {
     const PROJECT_TYPE = (process.env?.PROJECT_TYPE ||
       getInput('PROJECT_TYPE')) as ProjectType;
 
+    const PROJECT_ID = process.env?.PROJECT_ID || getInput('PROJECT_ID') || 1;
+
     coreInfo(`PROJECT_TYPE: ${PROJECT_TYPE}`);
 
     if (PROJECT_TYPE === 'ISSUE2PROJECTS') {
-      await issue2Projects(octokit);
+      await issue2Projects(octokit, Number(PROJECT_ID));
       return;
     }
     if (PROJECT_TYPE === 'PR2ISSUE') {
-      await pr2Issue(octokit);
+      await pr2Issue(octokit, Number(PROJECT_ID));
       return;
     }
 

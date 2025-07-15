@@ -31385,7 +31385,7 @@ const updateSingleSelectOptionField = (octokit, projectNodeId, itemId, fieldId, 
     value
 });
 
-const issue2Projects = async (octokit, projectId) => {
+const labelTrigger = async (octokit, projectId) => {
     const { owner, repo, number: issue_number } = githubExports.context.issue;
     const labelList = await octokit.rest.issues.listLabelsOnIssue({
         owner,
@@ -31612,7 +31612,7 @@ const extractIssueNumber = (extractBody, owner, repo) => {
     }
     return issues;
 };
-const pr2Issue = async (octokit, projectId) => {
+const prTrigger = async (octokit, projectId) => {
     const { owner, repo } = githubExports.context.repo;
     const prNumber = githubExports.context.payload.pull_request?.number;
     const eventAction = githubExports.context.payload.action;
@@ -31727,6 +31727,46 @@ const pr2Issue = async (octokit, projectId) => {
     }
 };
 
+const issueTrigger = async (octokit, projectId) => {
+    try {
+        const { owner, repo, number: issue_number } = githubExports.context.issue;
+        // 获取 issue 详情
+        const { data: issueDetail } = await octokit.rest.issues.get({
+            owner,
+            repo,
+            issue_number
+        });
+        const hasTargetLabel = issueDetail.labels.some((label) => typeof label === 'string'
+            ? label === 'to be published'
+            : label.name === 'to be published');
+        if (issueDetail.state === 'closed' && !hasTargetLabel) {
+            coreExports.info(`开始查询项目...`);
+            const project = await getOrgProjectV2(octokit, owner, projectId);
+            if (!project) {
+                coreExports.error('未提供 Project 对象');
+                return null;
+            }
+            coreExports.info(`开始查询项目节点 ID...`);
+            const projectNodeId = await queryProjectNodeId(project);
+            await octokit.graphql(`
+          mutation RemoveFromProject($projectId: ID!, $itemId: ID!) {
+            deleteProjectV2Item(input: { projectId: $projectId, itemId: $itemId }) {
+              deletedItemId
+            }
+          }
+        `, {
+                projectId: projectNodeId,
+                itemId: issueDetail.node_id
+            });
+        }
+        coreExports.info(`已将 issue ${issue_number} (node ID: ${issueDetail.node_id}) 从项目中移除`);
+    }
+    catch (error) {
+        console.error('Error checking issue:', error);
+        return false;
+    }
+};
+
 async function run() {
     try {
         const token = process.env?.GH_TOKEN ||
@@ -31741,15 +31781,19 @@ async function run() {
             coreExports.getInput('PROJECT_TYPE'));
         const PROJECT_ID = process.env?.PROJECT_ID || coreExports.getInput('PROJECT_ID') || 1;
         coreExports.info(`PROJECT_TYPE: ${PROJECT_TYPE}`);
-        if (PROJECT_TYPE === 'ISSUE2PROJECTS') {
-            await issue2Projects(octokit, Number(PROJECT_ID));
+        if (PROJECT_TYPE === 'LABEL2TRIGGER') {
+            await labelTrigger(octokit, Number(PROJECT_ID));
             return;
         }
-        if (PROJECT_TYPE === 'PR2ISSUE') {
-            await pr2Issue(octokit, Number(PROJECT_ID));
+        if (PROJECT_TYPE === 'PR2TRIGGER') {
+            await prTrigger(octokit, Number(PROJECT_ID));
             return;
         }
-        coreExports.setFailed("PROJECT_TYPE is not valid, not 'ISSUE2PROJECTS' or 'PR2ISSUE'");
+        if (PROJECT_TYPE === 'ISSUE2TRIGGER') {
+            await issueTrigger(octokit, Number(PROJECT_ID));
+            return;
+        }
+        coreExports.setFailed("PROJECT_TYPE is not valid, not 'ISSUE2TRIGGER', 'PR2TRIGGER', or 'LABEL2TRIGGER'");
     }
     catch (error) {
         if (error instanceof Error) {

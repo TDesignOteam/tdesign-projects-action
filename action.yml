@@ -11,8 +11,9 @@ branding:
 inputs:
   PROJECT_TYPE:
     description: >
-      `ISSUE2PROJECTS`: add issue to Projects;  
-      `PR2ISSUE`: the operation performed when PR is linked to issue
+      `LABEL2TRIGGER`: the operation performed when the label is triggered
+      `PR2TRIGGER`: the operation performed when the PR is triggered
+      `ISSUE2TRIGGER`: the operation performed when the issue is triggered
   PROJECT_ID:
     description: The ID of the project to which the issue will be added.
 

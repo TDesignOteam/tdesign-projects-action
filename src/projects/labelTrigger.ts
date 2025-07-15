@@ -13,7 +13,7 @@ import {
 import { queryFieldsSingleSelectOptionId } from '../utils/github/shared/queryFieldsSingleSelectOptionId';
 import { updateSingleSelectOptionField } from '../utils/github/updates/updateField';
 
-export const issue2Projects = async (octokit: Octokit, projectId: number) => {
+export const labelTrigger = async (octokit: Octokit, projectId: number) => {
   const { owner, repo, number: issue_number } = context.issue;
   const labelList = await octokit.rest.issues.listLabelsOnIssue({
     owner,

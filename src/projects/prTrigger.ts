@@ -68,7 +68,7 @@ type PRDetailsQueryResult = {
   } | null;
 };
 
-export const pr2Issue = async (octokit: Octokit, projectId: number) => {
+export const prTrigger = async (octokit: Octokit, projectId: number) => {
   const { owner, repo } = context.repo;
   const prNumber = context.payload.pull_request?.number;
 

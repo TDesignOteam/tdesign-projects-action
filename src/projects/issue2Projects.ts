@@ -4,7 +4,12 @@ import { coreError, coreInfo } from '../utils/coreAlias';
 import { getOrgProjectV2 } from '../utils/github/query/queryOrgProjectV2';
 import { queryProjectNodeId } from '../utils/github/shared/queryProjectNodeId';
 import { queryProjectField } from '../utils/github/shared/queryProjectField';
-import { issueFieldType, repoFields, RepoKey } from '../utils';
+import {
+  issueFieldOptions,
+  issueFieldType,
+  repoFields,
+  RepoKey
+} from '../utils';
 import { queryFieldsSingleSelectOptionId } from '../utils/github/shared/queryFieldsSingleSelectOptionId';
 import { updateSingleSelectOptionField } from '../utils/github/updates/updateField';
 
@@ -17,6 +22,7 @@ export const issue2Projects = async (octokit: Octokit) => {
   });
 
   coreInfo('查询 issue 的标签....');
+
   labelList.data.forEach((i) => {
     coreInfo(`标签: ${i.name}`);
   });
@@ -38,8 +44,8 @@ export const issue2Projects = async (octokit: Octokit) => {
   }
 
   coreInfo(`开始查询项目...`);
-  const project = await getOrgProjectV2(octokit, owner, 1);
 
+  const project = await getOrgProjectV2(octokit, owner, 1);
   if (!project) {
     coreError('未提供 Project 对象');
     return null;
@@ -74,6 +80,7 @@ export const issue2Projects = async (octokit: Octokit) => {
   const itemId = addIssue2ProjectGraphql.addProjectV2ItemById.item.id;
   coreInfo(`itemId: ${itemId}`);
 
+  // 更新框架字段
   const repoField = await queryProjectField(
     project,
     repoFields[repo as RepoKey].field
@@ -88,17 +95,39 @@ export const issue2Projects = async (octokit: Octokit) => {
     issueFieldType.needToDo
   );
 
+  // 更新 Device 字段
   const deviceField = await queryProjectField(project, 'Device');
   const deviceFieldId = deviceField?.id;
   if (!deviceFieldId) {
     coreError('未找到 deviceFieldId');
     return;
   }
-
   const deviceOptionId = await queryFieldsSingleSelectOptionId(
     deviceField.options,
     repoFields[repo as RepoKey].Device
   );
+
+  // 查询组件分类字段
+  const issueTitle = issueDetail.title;
+  const componentName = /\[(.*?)\]/.exec(issueTitle)?.[1];
+  const componentField = await queryProjectField(project, '组件分类');
+  const componentFieldId = componentField?.id;
+  const componentOptionId = componentName
+    ? await queryFieldsSingleSelectOptionId(deviceField.options, componentName)
+    : null;
+
+  //  查询问题分类字段
+  const issueTypeName = labelList.data.find((item) =>
+    Object.keys(issueFieldOptions).includes(item.name)
+  )?.name;
+  const issueTypeField = await queryProjectField(project, '问题分类');
+  const issueTypeFieldId = issueTypeField?.id;
+  const issueTypeOptionId = issueTypeFieldId
+    ? await queryFieldsSingleSelectOptionId(
+        issueTypeField.options,
+        issueFieldOptions[issueTypeName as keyof typeof issueFieldOptions] || ''
+      )
+    : null;
 
   // 更新多个字段
   const updates = [
@@ -111,6 +140,24 @@ export const issue2Projects = async (octokit: Octokit) => {
       value: { singleSelectOptionId: deviceOptionId }
     }
   ];
+
+  // 更新组件分类字段(可选)
+  if (componentFieldId && componentOptionId) {
+    const componentUpdates = {
+      fieldId: componentFieldId,
+      value: { singleSelectOptionId: componentOptionId }
+    };
+    updates.push(componentUpdates);
+  }
+
+  // 更新问题分类字段(可选)
+  if (issueTypeFieldId && issueTypeOptionId) {
+    const issueTypeUpdates = {
+      fieldId: issueTypeFieldId,
+      value: { singleSelectOptionId: issueTypeOptionId }
+    };
+    updates.push(issueTypeUpdates);
+  }
 
   coreInfo(`updates: ${JSON.stringify(updates)}`);
 

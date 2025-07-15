@@ -31455,8 +31455,8 @@ const issue2Projects = async (octokit, projectId) => {
     const componentName = /\[(.*?)\]/.exec(issueTitle)?.[1];
     const componentField = await queryProjectField(project, '组件分类');
     const componentFieldId = componentField?.id;
-    const componentOptionId = componentName
-        ? await queryFieldsSingleSelectOptionId(deviceField.options, componentName)
+    const componentOptionId = componentFieldId && componentName
+        ? await queryFieldsSingleSelectOptionId(componentField.options, componentName)
         : null;
     //  查询问题分类字段
     const issueTypeName = labelList.data.find((item) => Object.keys(issueFieldOptions).includes(item.name))?.name;

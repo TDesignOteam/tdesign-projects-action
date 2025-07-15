@@ -114,9 +114,13 @@ export const issue2Projects = async (octokit: Octokit, projectId: number) => {
   const componentName = /\[(.*?)\]/.exec(issueTitle)?.[1];
   const componentField = await queryProjectField(project, '组件分类');
   const componentFieldId = componentField?.id;
-  const componentOptionId = componentName
-    ? await queryFieldsSingleSelectOptionId(deviceField.options, componentName)
-    : null;
+  const componentOptionId =
+    componentFieldId && componentName
+      ? await queryFieldsSingleSelectOptionId(
+          componentField.options,
+          componentName
+        )
+      : null;
 
   //  查询问题分类字段
   const issueTypeName = labelList.data.find((item) =>

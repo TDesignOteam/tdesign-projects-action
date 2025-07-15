@@ -27,15 +27,17 @@ export const issue2Projects = async (octokit: Octokit, projectId: number) => {
     coreInfo(`标签: ${i.name}`);
   });
 
-  const hasBugOrEnhancement = labelList.data.some(
-    (label) => label.name === '🐞 bug' || label.name === '💪🏻 enhancement'
+  const hasBugOrEnhancement = labelList.data.some((option) =>
+    Object.keys(issueFieldOptions).includes(option.name)
   );
   const hasUnconfirmed = labelList.data.some(
     (label) => label.name === '🧐 unconfirmed'
   );
 
   if (!hasBugOrEnhancement) {
-    coreError('issue not have 🐞 bug or 💪🏻 enhancement label');
+    coreError(
+      `issue not have ${Object.keys(issueFieldOptions).join(',')} label`
+    );
     return;
   }
   if (hasUnconfirmed) {

@@ -26,9 +26,6 @@ jobs:
   project-issue-trigger:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
       - name: issue to project
         uses: TDesignOteam/tdesign-projects-action@develop
         env:
@@ -52,9 +49,6 @@ jobs:
   projects-label-trigger:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
       - name: label to project
         uses: TDesignOteam/tdesign-projects-action@develop
         env:
@@ -78,9 +72,6 @@ jobs:
   project-pr-trigger:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
       - name: pr to project
         uses: TDesignOteam/tdesign-projects-action@develop
         env:

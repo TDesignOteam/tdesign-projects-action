@@ -1,6 +1,6 @@
 import { context } from '@actions/github';
 import { Octokit } from '../types';
-import { coreError, coreInfo } from '../utils/coreAlias';
+import { coreError, coreInfo, coreWarning } from '../utils/coreAlias';
 import { getOrgProjectV2 } from '../utils/github/query/queryOrgProjectV2';
 import { queryProjectNodeId } from '../utils/github/shared/queryProjectNodeId';
 import { queryIssueInProjectV2Items } from '../utils/github/query/queryIssueInProjectV2Items';
@@ -45,7 +45,10 @@ export const issueTrigger = async (octokit: Octokit, projectId: number) => {
         issue_number
       );
 
-      coreInfo(`Project item: ${JSON.stringify(projectItems, null, 2)}`);
+      if (!projectItems.isInProject) {
+        coreWarning(`issue ${issue_number} 不在项目中`);
+        return;
+      }
 
       coreInfo(
         `即将将 issue ${issue_number} (node ID: ${projectItems.item?.node_id}) 从项目 ${projectNodeId} 中移除`

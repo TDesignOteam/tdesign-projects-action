@@ -31568,7 +31568,7 @@ async function queryIssueInProjectV2Items(octokit, owner, repo, projectNodeId, i
             return item.project.id === projectNodeId;
         });
         const isInProject = hasInProject && isMatchedProject;
-        coreExports.info(`Issue #${issueNumber} ${isInProject && isMatchedProject ? '已关联' : '未关联'} Project V2: ${projectNodeId}`);
+        coreExports.info(`Issue #${issueNumber} ${isInProject && isMatchedProject ? '存在于' : '未存在'} Project V2: ${projectNodeId}`);
         // 如果有关联项目，返回项目项信息
         if (isInProject) {
             const firstItem = issue.projectItems.nodes[0];
@@ -31756,7 +31756,10 @@ const issueTrigger = async (octokit, projectId) => {
                 return null;
             }
             const projectItems = await queryIssueInProjectV2Items(octokit, owner, repo, projectNodeId, issue_number);
-            coreExports.info(`Project item: ${JSON.stringify(projectItems, null, 2)}`);
+            if (!projectItems.isInProject) {
+                coreExports.warning(`issue ${issue_number} 不在项目中`);
+                return;
+            }
             coreExports.info(`即将将 issue ${issue_number} (node ID: ${projectItems.item?.node_id}) 从项目 ${projectNodeId} 中移除`);
             await octokit.graphql(`
           mutation RemoveFromProject($projectId: ID!, $itemId: ID!) {

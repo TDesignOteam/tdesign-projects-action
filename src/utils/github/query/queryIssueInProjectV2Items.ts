@@ -112,7 +112,7 @@ export async function queryIssueInProjectV2Items(
 
     const isInProject = hasInProject && isMatchedProject;
     coreInfo(
-      `Issue #${issueNumber} ${isInProject && isMatchedProject ? '已关联' : '未关联'} Project V2: ${projectNodeId}`
+      `Issue #${issueNumber} ${isInProject && isMatchedProject ? '存在于' : '未存在'} Project V2: ${projectNodeId}`
     );
 
     // 如果有关联项目，返回项目项信息

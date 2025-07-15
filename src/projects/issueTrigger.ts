@@ -3,6 +3,7 @@ import { Octokit } from '../types';
 import { coreError, coreInfo } from '../utils/coreAlias';
 import { getOrgProjectV2 } from '../utils/github/query/queryOrgProjectV2';
 import { queryProjectNodeId } from '../utils/github/shared/queryProjectNodeId';
+import { queryIssueInProjectV2Items } from '../utils/github/query/queryIssueInProjectV2Items';
 
 export const issueTrigger = async (octokit: Octokit, projectId: number) => {
   try {
@@ -21,16 +22,29 @@ export const issueTrigger = async (octokit: Octokit, projectId: number) => {
     );
 
     if (issueDetail.state === 'closed' && !hasTargetLabel) {
-      coreInfo(`开始查询项目...`);
-
       const project = await getOrgProjectV2(octokit, owner, projectId);
       if (!project) {
         coreError('未提供 Project 对象');
         return null;
       }
 
-      coreInfo(`开始查询项目节点 ID...`);
       const projectNodeId = await queryProjectNodeId(project);
+      if (!projectNodeId) {
+        coreError('未提供 Project Node ID');
+        return null;
+      }
+
+      const projectItems = await queryIssueInProjectV2Items(
+        octokit,
+        owner,
+        repo,
+        projectNodeId,
+        issue_number
+      );
+
+      coreInfo(
+        `即将将 issue ${issue_number} (node ID: ${projectItems.item?.node_id}) 从项目中移除`
+      );
 
       await octokit.graphql(
         `
@@ -42,14 +56,14 @@ export const issueTrigger = async (octokit: Octokit, projectId: number) => {
         `,
         {
           projectId: projectNodeId,
-          itemId: issueDetail.node_id
+          itemId: projectItems.item?.node_id
         }
       );
+      coreInfo(
+        `已将 issue ${issue_number} (node ID: ${projectItems.item?.node_id}) 从项目中移除`
+      );
     }
-
-    coreInfo(
-      `已将 issue ${issue_number} (node ID: ${issueDetail.node_id}) 从项目中移除`
-    );
+    coreError(`未匹配到事件，当前 issue 状态为: ${issueDetail.state}`);
   } catch (error) {
     console.error('Error checking issue:', error);
     return false;

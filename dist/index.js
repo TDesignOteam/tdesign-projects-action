@@ -31396,14 +31396,11 @@ const issue2Projects = async (octokit, projectId) => {
     labelList.data.forEach((i) => {
         coreExports.info(`标签: ${i.name}`);
     });
-    const hasBugOrEnhancement = labelList.data.some((option) => Object.keys(issueFieldOptions).includes(option.name));
-    const hasUnconfirmed = labelList.data.some((label) => label.name === '🧐 unconfirmed');
-    if (!hasBugOrEnhancement) {
-        coreExports.error(`issue not have ${Object.keys(issueFieldOptions).join(',')} label`);
-        return;
-    }
-    if (hasUnconfirmed) {
-        coreExports.error('issue have 🧐 unconfirmed label');
+    const isNeedTodo = labelList.data.some((option) => Object.keys(issueFieldOptions).includes(option.name));
+    const isToBePublished = labelList.data.some((label) => label.name === 'to be published');
+    const isUnconfirmed = labelList.data.some((label) => label.name === '🧐 unconfirmed');
+    if (!isNeedTodo && !isToBePublished && !isUnconfirmed) {
+        coreExports.error(`${labelList.data.map((i) => i.name).join(', ')} 不包含待办、发布或未确认标签`);
         return;
     }
     coreExports.info(`开始查询项目...`);
@@ -31435,13 +31432,29 @@ const issue2Projects = async (octokit, projectId) => {
     const itemId = addIssue2ProjectGraphql.addProjectV2ItemById.item.id;
     coreExports.info(`itemId: ${itemId}`);
     // 更新框架字段
-    const repoField = await queryProjectField(project, repoFields[repo].field);
-    const fieldId = repoField?.id;
-    if (!fieldId) {
-        coreExports.error('未找到 fieldId');
+    const frameField = await queryProjectField(project, repoFields[repo].field);
+    const frameFieldId = frameField?.id;
+    if (!frameFieldId) {
+        coreExports.error('未找到 frameFieldId');
         return;
     }
-    const needToDoOptionId = await queryFieldsSingleSelectOptionId(repoField.options, issueFieldType.needToDo);
+    const needToDoOptionId = await queryFieldsSingleSelectOptionId(frameField.options, issueFieldType.needToDo);
+    const finishedOptionId = await queryFieldsSingleSelectOptionId(frameField.options, issueFieldType.finished);
+    const noPlanOptionId = await queryFieldsSingleSelectOptionId(frameField.options, issueFieldType.noPlan);
+    let frameSingleSelectOptionId = null;
+    if (isUnconfirmed) {
+        frameSingleSelectOptionId = noPlanOptionId;
+    }
+    else if (isToBePublished) {
+        frameSingleSelectOptionId = finishedOptionId;
+    }
+    else if (isNeedTodo) {
+        frameSingleSelectOptionId = needToDoOptionId;
+    }
+    else {
+        coreExports.error('未找到所需的选项ID');
+        return;
+    }
     // 更新 Device 字段
     const deviceField = await queryProjectField(project, 'Device');
     const deviceFieldId = deviceField?.id;
@@ -31452,7 +31465,7 @@ const issue2Projects = async (octokit, projectId) => {
     const deviceOptionId = await queryFieldsSingleSelectOptionId(deviceField.options, repoFields[repo].Device);
     // 查询组件分类字段
     const issueTitle = issueDetail.title;
-    const componentName = /\[(.*?)\]/.exec(issueTitle)?.[1];
+    const componentName = /\[(.*?)\]/.exec(issueTitle)?.[1] || '';
     const componentField = await queryProjectField(project, '组件分类');
     const componentFieldId = componentField?.id;
     const componentOptionId = componentFieldId && componentName
@@ -31468,8 +31481,10 @@ const issue2Projects = async (octokit, projectId) => {
     // 更新多个字段
     const updates = [
         {
-            fieldId: fieldId,
-            value: { singleSelectOptionId: needToDoOptionId }
+            fieldId: frameFieldId,
+            value: {
+                singleSelectOptionId: frameSingleSelectOptionId
+            }
         },
         {
             fieldId: deviceFieldId,

@@ -142,7 +142,7 @@ export const prTrigger = async (octokit: Octokit, projectId: number) => {
     }
 
     issues.forEach(async (issueNumber) => {
-      const projectItems = await queryIssueInProjectV2Items(
+      const projectItem = await queryIssueInProjectV2Items(
         octokit,
         owner,
         repo,
@@ -150,14 +150,14 @@ export const prTrigger = async (octokit: Octokit, projectId: number) => {
         issueNumber
       );
 
-      coreInfo(`Project item: ${JSON.stringify(projectItems, null, 2)}`);
+      coreInfo(`Project item: ${JSON.stringify(projectItem, null, 2)}`);
 
-      if (projectItems.isInProject) {
+      if (projectItem.isInProject) {
         coreInfo(
-          `Issue #${issueNumber} already in project node id: ${projectNodeId}, item id: ${projectItems?.item?.node_id}`
+          `Issue #${issueNumber} already in project node id: ${projectNodeId}, item id: ${projectItem?.item?.node_id}`
         );
 
-        if (!projectItems?.item?.node_id) {
+        if (!projectItem?.item?.node_id) {
           coreError('未找到 project item id');
           return;
         }
@@ -213,7 +213,7 @@ export const prTrigger = async (octokit: Octokit, projectId: number) => {
         updateSingleSelectOptionField(
           octokit,
           projectNodeId,
-          projectItems?.item?.node_id,
+          projectItem?.item?.node_id,
           fieldId,
           singleSelectOptionId
         );

@@ -12,6 +12,7 @@ import {
 } from '../utils';
 import { queryFieldsSingleSelectOptionId } from '../utils/github/shared/queryFieldsSingleSelectOptionId';
 import { updateSingleSelectOptionField } from '../utils/github/updates/updateField';
+import { queryIssueInProjectV2Items } from '../utils/github/query/queryIssueInProjectV2Items';
 
 export const labelTrigger = async (octokit: Octokit, projectId: number) => {
   const { owner, repo, number: issue_number } = context.issue;
@@ -57,31 +58,56 @@ export const labelTrigger = async (octokit: Octokit, projectId: number) => {
   coreInfo(`开始查询项目节点 ID...`);
   const projectNodeId = await queryProjectNodeId(project);
 
+  if (!projectNodeId) {
+    coreError('未提供 Project Node ID');
+    return null;
+  }
+
   const { data: issueDetail } = await octokit.rest.issues.get({
     owner,
     repo,
-    issue_number: Number(issue_number)
+    issue_number: issue_number
   });
   const issueNodeId = issueDetail.node_id;
   coreInfo(`issueNodeId: ${issueNodeId}`);
 
-  // 添加到 project v2
-  const addIssue2ProjectGraphql: AddProjectV2ItemResult = await octokit.graphql(
-    `
+  // 检查 issue 是否已在 project v2 中
+
+  const projectItem = await queryIssueInProjectV2Items(
+    octokit,
+    owner,
+    repo,
+    projectNodeId,
+    issue_number
+  );
+
+  let projectItemId = projectItem.item?.node_id;
+
+  if (projectItem.isInProject || projectItemId) {
+    // 添加到 project v2
+    const addIssue2ProjectGraphql: AddProjectV2ItemResult =
+      await octokit.graphql(
+        `
       mutation AddToProject($projectId: ID!, $contentId: ID!) {
         addProjectV2ItemById(input: { projectId: $projectId, contentId: $contentId }) {
           item { id }
         }
       }
     `,
-    {
-      projectId: projectNodeId,
-      contentId: issueNodeId
-    }
-  );
+        {
+          projectId: projectNodeId,
+          contentId: issueNodeId
+        }
+      );
 
-  const itemId = addIssue2ProjectGraphql.addProjectV2ItemById.item.id;
-  coreInfo(`itemId: ${itemId}`);
+    projectItemId = addIssue2ProjectGraphql.addProjectV2ItemById.item.id;
+    coreInfo(`projectItemId: ${projectItemId}`);
+  }
+
+  if (!projectItemId) {
+    coreError(`projectItemId: ${projectItemId}`);
+    return;
+  }
 
   // 更新框架字段
   const frameField = await queryProjectField(
@@ -196,7 +222,7 @@ export const labelTrigger = async (octokit: Octokit, projectId: number) => {
       updateSingleSelectOptionField(
         octokit,
         projectNodeId,
-        itemId,
+        projectItemId,
         fieldId,
         value
       )

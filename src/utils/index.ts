@@ -42,3 +42,10 @@ export const issueFieldType = {
   finished: 'finished',
   noPlan: 'no plan'
 } as const;
+
+export const issueFieldOptions = {
+  '🐞 bug': 'Bug',
+  '💪🏻 enhancement': 'Feature Request',
+  '🐣 new component': 'New Component',
+  question: 'Question'
+} as const;

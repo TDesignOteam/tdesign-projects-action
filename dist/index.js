@@ -31343,6 +31343,12 @@ const issueFieldType = {
     finished: 'finished',
     noPlan: 'no plan'
 };
+const issueFieldOptions = {
+    '🐞 bug': 'Bug',
+    '💪🏻 enhancement': 'Feature Request',
+    '🐣 new component': 'New Component',
+    question: 'Question'
+};
 
 /**
  * 查询单选字段选项 ID
@@ -31353,7 +31359,7 @@ const issueFieldType = {
 const queryFieldsSingleSelectOptionId = async (options, filedName) => {
     const NeedToDoOption = options.find((opt) => opt.name === filedName);
     if (!NeedToDoOption) {
-        coreExports.error('未找到 NeedToDoOption 目标选项');
+        coreExports.error(`queryFieldsSingleSelectOptionId ${JSON.stringify(options, null, 2)} 未找到 ${filedName} 目标选项`);
         return null;
     }
     return NeedToDoOption.id;
@@ -31378,84 +31384,6 @@ const updateSingleSelectOptionField = (octokit, projectNodeId, itemId, fieldId, 
     fieldId,
     value
 });
-
-const issue2Projects = async (octokit) => {
-    const { owner, repo, number: issue_number } = githubExports.context.issue;
-    const labelList = await octokit.rest.issues.listLabelsOnIssue({
-        owner,
-        repo,
-        issue_number
-    });
-    coreExports.info('查询 issue 的标签....');
-    labelList.data.forEach((i) => {
-        coreExports.info(`标签: ${i.name}`);
-    });
-    const hasBugOrEnhancement = labelList.data.some((label) => label.name === '🐞 bug' || label.name === '💪🏻 enhancement');
-    const hasUnconfirmed = labelList.data.some((label) => label.name === '🧐 unconfirmed');
-    if (!hasBugOrEnhancement) {
-        coreExports.error('issue not have 🐞 bug or 💪🏻 enhancement label');
-        return;
-    }
-    if (hasUnconfirmed) {
-        coreExports.error('issue have 🧐 unconfirmed label');
-        return;
-    }
-    coreExports.info(`开始查询项目...`);
-    const project = await getOrgProjectV2(octokit, owner, 1);
-    if (!project) {
-        coreExports.error('未提供 Project 对象');
-        return null;
-    }
-    coreExports.info(`开始查询项目节点 ID...`);
-    const projectNodeId = await queryProjectNodeId(project);
-    const { data: issueDetail } = await octokit.rest.issues.get({
-        owner,
-        repo,
-        issue_number: Number(issue_number)
-    });
-    const issueNodeId = issueDetail.node_id;
-    coreExports.info(`issueNodeId: ${issueNodeId}`);
-    // 添加到 project v2
-    const addIssue2ProjectGraphql = await octokit.graphql(`
-      mutation AddToProject($projectId: ID!, $contentId: ID!) {
-        addProjectV2ItemById(input: { projectId: $projectId, contentId: $contentId }) {
-          item { id }
-        }
-      }
-    `, {
-        projectId: projectNodeId,
-        contentId: issueNodeId
-    });
-    const itemId = addIssue2ProjectGraphql.addProjectV2ItemById.item.id;
-    coreExports.info(`itemId: ${itemId}`);
-    const repoField = await queryProjectField(project, repoFields[repo].field);
-    const fieldId = repoField?.id;
-    if (!fieldId) {
-        coreExports.error('未找到 fieldId');
-        return;
-    }
-    const needToDoOptionId = await queryFieldsSingleSelectOptionId(repoField.options, issueFieldType.needToDo);
-    const deviceField = await queryProjectField(project, 'Device');
-    const deviceFieldId = deviceField?.id;
-    if (!deviceFieldId) {
-        coreExports.error('未找到 deviceFieldId');
-        return;
-    }
-    const deviceOptionId = await queryFieldsSingleSelectOptionId(deviceField.options, repoFields[repo].Device);
-    // 更新多个字段
-    const updates = [
-        {
-            fieldId: fieldId,
-            value: { singleSelectOptionId: needToDoOptionId }
-        },
-        {
-            fieldId: deviceFieldId,
-            value: { singleSelectOptionId: deviceOptionId }
-        }
-    ];
-    coreExports.info(`updates: ${JSON.stringify(updates)}`);
-    await Promise.all(updates.map(({ fieldId, value }) => updateSingleSelectOptionField(octokit, projectNodeId, itemId, fieldId, value)));
-};
 
 /**
  * 检查指定 Issue 是否在 GitHub Project V2 中，并返回关联的项目项信息
@@ -31514,7 +31442,7 @@ async function queryIssueInProjectV2Items(octokit, owner, repo, projectNodeId, i
             return item.project.id === projectNodeId;
         });
         const isInProject = hasInProject && isMatchedProject;
-        coreExports.info(`Issue #${issueNumber} ${isInProject && isMatchedProject ? '已关联' : '未关联'} Project V2: ${projectNodeId}`);
+        coreExports.info(`Issue #${issueNumber} ${isInProject && isMatchedProject ? '存在于' : '未存在'} Project V2: ${projectNodeId}`);
         // 如果有关联项目，返回项目项信息
         if (isInProject) {
             const firstItem = issue.projectItems.nodes[0];
@@ -31537,6 +31465,145 @@ async function queryIssueInProjectV2Items(octokit, owner, repo, projectNodeId, i
     }
 }
 
+const labelTrigger = async (octokit, projectId) => {
+    const { owner, repo, number: issue_number } = githubExports.context.issue;
+    const labelList = await octokit.rest.issues.listLabelsOnIssue({
+        owner,
+        repo,
+        issue_number
+    });
+    coreExports.info('查询 issue 的标签....');
+    labelList.data.forEach((i) => {
+        coreExports.info(`标签: ${i.name}`);
+    });
+    const isNeedTodo = labelList.data.some((option) => Object.keys(issueFieldOptions).includes(option.name));
+    const isToBePublished = labelList.data.some((label) => label.name === 'to be published');
+    const isUnconfirmed = labelList.data.some((label) => label.name === '🧐 unconfirmed');
+    if (!isNeedTodo && !isToBePublished && !isUnconfirmed) {
+        coreExports.error(`${labelList.data.map((i) => i.name).join(', ')} 不包含待办、发布或未确认标签`);
+        return;
+    }
+    coreExports.info(`开始查询项目...`);
+    const project = await getOrgProjectV2(octokit, owner, projectId);
+    if (!project) {
+        coreExports.error('未提供 Project 对象');
+        return null;
+    }
+    coreExports.info(`开始查询项目节点 ID...`);
+    const projectNodeId = await queryProjectNodeId(project);
+    if (!projectNodeId) {
+        coreExports.error('未提供 Project Node ID');
+        return null;
+    }
+    const { data: issueDetail } = await octokit.rest.issues.get({
+        owner,
+        repo,
+        issue_number: issue_number
+    });
+    const issueNodeId = issueDetail.node_id;
+    coreExports.info(`issueNodeId: ${issueNodeId}`);
+    // 检查 issue 是否已在 project v2 中
+    const projectItem = await queryIssueInProjectV2Items(octokit, owner, repo, projectNodeId, issue_number);
+    let projectItemId = projectItem.item?.node_id;
+    if (projectItem.isInProject || projectItemId) {
+        // 添加到 project v2
+        const addIssue2ProjectGraphql = await octokit.graphql(`
+      mutation AddToProject($projectId: ID!, $contentId: ID!) {
+        addProjectV2ItemById(input: { projectId: $projectId, contentId: $contentId }) {
+          item { id }
+        }
+      }
+    `, {
+            projectId: projectNodeId,
+            contentId: issueNodeId
+        });
+        projectItemId = addIssue2ProjectGraphql.addProjectV2ItemById.item.id;
+        coreExports.info(`projectItemId: ${projectItemId}`);
+    }
+    if (!projectItemId) {
+        coreExports.error(`projectItemId: ${projectItemId}`);
+        return;
+    }
+    // 更新框架字段
+    const frameField = await queryProjectField(project, repoFields[repo].field);
+    const frameFieldId = frameField?.id;
+    if (!frameFieldId) {
+        coreExports.error('未找到 frameFieldId');
+        return;
+    }
+    const needToDoOptionId = await queryFieldsSingleSelectOptionId(frameField.options, issueFieldType.needToDo);
+    const finishedOptionId = await queryFieldsSingleSelectOptionId(frameField.options, issueFieldType.finished);
+    const noPlanOptionId = await queryFieldsSingleSelectOptionId(frameField.options, issueFieldType.noPlan);
+    let frameSingleSelectOptionId = null;
+    if (isUnconfirmed) {
+        frameSingleSelectOptionId = noPlanOptionId;
+    }
+    else if (isToBePublished) {
+        frameSingleSelectOptionId = finishedOptionId;
+    }
+    else if (isNeedTodo) {
+        frameSingleSelectOptionId = needToDoOptionId;
+    }
+    else {
+        coreExports.error('未找到所需的选项ID');
+        return;
+    }
+    // 更新 Device 字段
+    const deviceField = await queryProjectField(project, 'Device');
+    const deviceFieldId = deviceField?.id;
+    if (!deviceFieldId) {
+        coreExports.error('未找到 deviceFieldId');
+        return;
+    }
+    const deviceOptionId = await queryFieldsSingleSelectOptionId(deviceField.options, repoFields[repo].Device);
+    // 查询组件分类字段
+    const issueTitle = issueDetail.title;
+    const componentName = /\[(.*?)\]/.exec(issueTitle)?.[1] || '';
+    const componentField = await queryProjectField(project, '组件分类');
+    const componentFieldId = componentField?.id;
+    const componentOptionId = componentFieldId && componentName
+        ? await queryFieldsSingleSelectOptionId(componentField.options, componentName)
+        : null;
+    //  查询问题分类字段
+    const issueTypeName = labelList.data.find((item) => Object.keys(issueFieldOptions).includes(item.name))?.name;
+    const issueTypeField = await queryProjectField(project, '问题分类');
+    const issueTypeFieldId = issueTypeField?.id;
+    const issueTypeOptionId = issueTypeFieldId
+        ? await queryFieldsSingleSelectOptionId(issueTypeField.options, issueFieldOptions[issueTypeName] || '')
+        : null;
+    // 更新多个字段
+    const updates = [
+        {
+            fieldId: frameFieldId,
+            value: {
+                singleSelectOptionId: frameSingleSelectOptionId
+            }
+        },
+        {
+            fieldId: deviceFieldId,
+            value: { singleSelectOptionId: deviceOptionId }
+        }
+    ];
+    // 更新组件分类字段(可选)
+    if (componentFieldId && componentOptionId) {
+        const componentUpdates = {
+            fieldId: componentFieldId,
+            value: { singleSelectOptionId: componentOptionId }
+        };
+        updates.push(componentUpdates);
+    }
+    // 更新问题分类字段(可选)
+    if (issueTypeFieldId && issueTypeOptionId) {
+        const issueTypeUpdates = {
+            fieldId: issueTypeFieldId,
+            value: { singleSelectOptionId: issueTypeOptionId }
+        };
+        updates.push(issueTypeUpdates);
+    }
+    coreExports.info(`updates: ${JSON.stringify(updates)}`);
+    await Promise.all(updates.map(({ fieldId, value }) => updateSingleSelectOptionField(octokit, projectNodeId, projectItemId, fieldId, value)));
+};
+
 /*
  * @description 只匹配当前仓库的 issue
  */
@@ -31558,7 +31625,7 @@ const extractIssueNumber = (extractBody, owner, repo) => {
     }
     return issues;
 };
-const pr2Issue = async (octokit) => {
+const prTrigger = async (octokit, projectId) => {
     const { owner, repo } = githubExports.context.repo;
     const prNumber = githubExports.context.payload.pull_request?.number;
     const eventAction = githubExports.context.payload.action;
@@ -31611,7 +31678,7 @@ const pr2Issue = async (octokit) => {
     `;
         const issues = extractIssueNumber(prResultMessageStr, owner, repo);
         coreExports.info(`PR #${prNumber} linked issues: ${issues.join(', ')}`);
-        const project = await getOrgProjectV2(octokit, owner, 1);
+        const project = await getOrgProjectV2(octokit, owner, projectId);
         if (!project) {
             coreExports.error('未提供 Project 对象');
             return null;
@@ -31622,11 +31689,11 @@ const pr2Issue = async (octokit) => {
             return null;
         }
         issues.forEach(async (issueNumber) => {
-            const projectItems = await queryIssueInProjectV2Items(octokit, owner, repo, projectNodeId, issueNumber);
-            coreExports.info(`Project item: ${JSON.stringify(projectItems, null, 2)}`);
-            if (projectItems.isInProject) {
-                coreExports.info(`Issue #${issueNumber} already in project node id: ${projectNodeId}, item id: ${projectItems?.item?.node_id}`);
-                if (!projectItems?.item?.node_id) {
+            const projectItem = await queryIssueInProjectV2Items(octokit, owner, repo, projectNodeId, issueNumber);
+            coreExports.info(`Project item: ${JSON.stringify(projectItem, null, 2)}`);
+            if (projectItem.isInProject) {
+                coreExports.info(`Issue #${issueNumber} already in project node id: ${projectNodeId}, item id: ${projectItem?.item?.node_id}`);
+                if (!projectItem?.item?.node_id) {
                     coreExports.error('未找到 project item id');
                     return;
                 }
@@ -31664,12 +31731,66 @@ const pr2Issue = async (octokit) => {
                 else {
                     coreExports.info(`未匹配到事件: ${eventAction}`);
                 }
-                updateSingleSelectOptionField(octokit, projectNodeId, projectItems?.item?.node_id, fieldId, singleSelectOptionId);
+                updateSingleSelectOptionField(octokit, projectNodeId, projectItem?.item?.node_id, fieldId, singleSelectOptionId);
             }
         });
     }
     catch (error) {
         console.error('Failed to get linked issues:', error);
+    }
+};
+
+const issueTrigger = async (octokit, projectId) => {
+    try {
+        const { owner, repo, number: issue_number } = githubExports.context.issue;
+        // 获取 issue 详情
+        const { data: issueDetail } = await octokit.rest.issues.get({
+            owner,
+            repo,
+            issue_number
+        });
+        const hasTargetLabel = issueDetail.labels.some((label) => {
+            if (typeof label === 'string') {
+                coreExports.info(`label: ${label}`);
+                return label === 'to be published';
+            }
+            coreExports.info(`label: ${label.name}`);
+            return label.name === 'to be published';
+        });
+        if (issueDetail.state === 'closed' && !hasTargetLabel) {
+            const project = await getOrgProjectV2(octokit, owner, projectId);
+            if (!project) {
+                coreExports.error('未提供 Project 对象');
+                return null;
+            }
+            const projectNodeId = await queryProjectNodeId(project);
+            if (!projectNodeId) {
+                coreExports.error('未提供 Project Node ID');
+                return null;
+            }
+            const projectItems = await queryIssueInProjectV2Items(octokit, owner, repo, projectNodeId, issue_number);
+            if (!projectItems.isInProject) {
+                coreExports.warning(`issue ${issue_number} 不在项目中`);
+                return;
+            }
+            coreExports.info(`即将将 issue ${issue_number} (node ID: ${projectItems.item?.node_id}) 从项目 ${projectNodeId} 中移除`);
+            await octokit.graphql(`
+          mutation RemoveFromProject($projectId: ID!, $itemId: ID!) {
+            deleteProjectV2Item(input: { projectId: $projectId, itemId: $itemId }) {
+              deletedItemId
+            }
+          }
+        `, {
+                projectId: projectNodeId,
+                itemId: projectItems.item?.node_id
+            });
+            coreExports.info(`已将 issue ${issue_number} (node ID: ${projectItems.item?.node_id}) 从项目中移除`);
+        }
+        coreExports.error(`未匹配到事件，当前 issue 状态为: ${issueDetail.state}`);
+    }
+    catch (error) {
+        console.error('Error checking issue:', error);
+        return false;
     }
 };
 
@@ -31685,16 +31806,21 @@ async function run() {
         const octokit = githubExports.getOctokit(token);
         const PROJECT_TYPE = (process.env?.PROJECT_TYPE ||
             coreExports.getInput('PROJECT_TYPE'));
+        const PROJECT_ID = process.env?.PROJECT_ID || coreExports.getInput('PROJECT_ID') || 1;
         coreExports.info(`PROJECT_TYPE: ${PROJECT_TYPE}`);
-        if (PROJECT_TYPE === 'ISSUE2PROJECTS') {
-            await issue2Projects(octokit);
+        if (PROJECT_TYPE === 'LABEL2TRIGGER') {
+            await labelTrigger(octokit, Number(PROJECT_ID));
             return;
         }
-        if (PROJECT_TYPE === 'PR2ISSUE') {
-            await pr2Issue(octokit);
+        if (PROJECT_TYPE === 'PR2TRIGGER') {
+            await prTrigger(octokit, Number(PROJECT_ID));
             return;
         }
-        coreExports.setFailed("PROJECT_TYPE is not valid, not 'ISSUE2PROJECTS' or 'PR2ISSUE'");
+        if (PROJECT_TYPE === 'ISSUE2TRIGGER') {
+            await issueTrigger(octokit, Number(PROJECT_ID));
+            return;
+        }
+        coreExports.setFailed("PROJECT_TYPE is not valid, not 'ISSUE2TRIGGER', 'PR2TRIGGER', or 'LABEL2TRIGGER'");
     }
     catch (error) {
         if (error instanceof Error) {

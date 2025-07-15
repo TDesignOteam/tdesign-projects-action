@@ -1,10 +1,11 @@
 import { getInput } from '@actions/core';
 import { coreInfo, coreSetFailed } from './utils/coreAlias';
 import { getOctokit } from '@actions/github';
-import { issue2Projects } from './projects/issue2Projects';
-import { pr2Issue } from './projects/pr2Issue';
+import { labelTrigger } from './projects/labelTrigger';
+import { prTrigger } from './projects/prTrigger';
+import { issueTrigger } from './projects/issueTrigger';
 
-type ProjectType = 'ISSUE2PROJECTS' | 'PR2ISSUE';
+type ProjectType = 'ISSUE2TRIGGER' | 'PR2TRIGGER' | 'LABEL2TRIGGER';
 
 async function run(): Promise<void> {
   try {
@@ -22,19 +23,25 @@ async function run(): Promise<void> {
     const PROJECT_TYPE = (process.env?.PROJECT_TYPE ||
       getInput('PROJECT_TYPE')) as ProjectType;
 
+    const PROJECT_ID = process.env?.PROJECT_ID || getInput('PROJECT_ID') || 1;
+
     coreInfo(`PROJECT_TYPE: ${PROJECT_TYPE}`);
 
-    if (PROJECT_TYPE === 'ISSUE2PROJECTS') {
-      await issue2Projects(octokit);
+    if (PROJECT_TYPE === 'LABEL2TRIGGER') {
+      await labelTrigger(octokit, Number(PROJECT_ID));
       return;
     }
-    if (PROJECT_TYPE === 'PR2ISSUE') {
-      await pr2Issue(octokit);
+    if (PROJECT_TYPE === 'PR2TRIGGER') {
+      await prTrigger(octokit, Number(PROJECT_ID));
+      return;
+    }
+    if (PROJECT_TYPE === 'ISSUE2TRIGGER') {
+      await issueTrigger(octokit, Number(PROJECT_ID));
       return;
     }
 
     coreSetFailed(
-      "PROJECT_TYPE is not valid, not 'ISSUE2PROJECTS' or 'PR2ISSUE'"
+      "PROJECT_TYPE is not valid, not 'ISSUE2TRIGGER', 'PR2TRIGGER', or 'LABEL2TRIGGER'"
     );
   } catch (error: unknown) {
     if (error instanceof Error) {

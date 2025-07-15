@@ -14,7 +14,9 @@ export const queryFieldsSingleSelectOptionId = async (
     (opt: { name: string }) => opt.name === filedName
   );
   if (!NeedToDoOption) {
-    coreError('未找到 NeedToDoOption 目标选项');
+    coreError(
+      `queryFieldsSingleSelectOptionId ${JSON.stringify(options, null, 2)} 未找到 ${filedName} 目标选项`
+    );
     return null;
   }
   return NeedToDoOption.id;

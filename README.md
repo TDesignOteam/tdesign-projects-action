@@ -65,7 +65,7 @@ jobs:
 name: Project & PR Trigger Workflow
 
 on:
-  pull_request:
+  pull_request_target:
     types: [opened, reopened, closed]
 
 jobs:

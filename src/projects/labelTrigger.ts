@@ -83,7 +83,7 @@ export const labelTrigger = async (octokit: Octokit, projectId: number) => {
 
   let projectItemId = projectItem.item?.node_id;
 
-  if (projectItem.isInProject || projectItemId) {
+  if (!projectItem.isInProject || !projectItemId) {
     // 添加到 project v2
     const addIssue2ProjectGraphql: AddProjectV2ItemResult =
       await octokit.graphql(

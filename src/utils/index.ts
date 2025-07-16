@@ -23,7 +23,7 @@ export const repoFields = {
     Device: 'Mobile'
   },
   'tdesign-miniprogram': {
-    field: 'Vue 2 状态',
+    field: 'MiniProgram 状态',
     Device: 'Mobile'
   }
 } as const;

@@ -31330,7 +31330,7 @@ const repoFields = {
         Device: 'Mobile'
     },
     'tdesign-miniprogram': {
-        field: 'Vue 2 状态',
+        field: 'MiniProgram 状态',
         Device: 'Mobile'
     }
 };
@@ -31505,7 +31505,7 @@ const labelTrigger = async (octokit, projectId) => {
     // 检查 issue 是否已在 project v2 中
     const projectItem = await queryIssueInProjectV2Items(octokit, owner, repo, projectNodeId, issue_number);
     let projectItemId = projectItem.item?.node_id;
-    if (projectItem.isInProject || projectItemId) {
+    if (!projectItem.isInProject || !projectItemId) {
         // 添加到 project v2
         const addIssue2ProjectGraphql = await octokit.graphql(`
       mutation AddToProject($projectId: ID!, $contentId: ID!) {

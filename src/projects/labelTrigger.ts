@@ -1,6 +1,6 @@
 import { AddProjectV2ItemResult, Octokit } from '../types/index';
 import { context } from '@actions/github';
-import { coreError, coreInfo } from '../utils/coreAlias';
+import { coreError, coreInfo, coreWarning } from '../utils/coreAlias';
 import { getOrgProjectV2 } from '../utils/github/query/queryOrgProjectV2';
 import { queryProjectNodeId } from '../utils/github/shared/queryProjectNodeId';
 import { queryProjectField } from '../utils/github/shared/queryProjectField';
@@ -128,14 +128,41 @@ export const labelTrigger = async (octokit: Octokit, projectId: number) => {
     issueFieldType.finished
   );
 
-  const noPlanOptionId = await queryFieldsSingleSelectOptionId(
-    frameField.options,
-    issueFieldType.noPlan
-  );
-
   let frameSingleSelectOptionId = null;
   if (isUnconfirmed) {
-    frameSingleSelectOptionId = noPlanOptionId;
+    const projectItems = await queryIssueInProjectV2Items(
+      octokit,
+      owner,
+      repo,
+      projectNodeId,
+      issue_number
+    );
+
+    if (!projectItems.isInProject) {
+      coreWarning(`issue ${issue_number} 不在项目中`);
+      return;
+    }
+
+    coreInfo(
+      `即将将 issue ${issue_number} (node ID: ${projectItems.item?.node_id}) 从项目 ${projectNodeId} 中移除`
+    );
+
+    await octokit.graphql(
+      `
+          mutation RemoveFromProject($projectId: ID!, $itemId: ID!) {
+            deleteProjectV2Item(input: { projectId: $projectId, itemId: $itemId }) {
+              deletedItemId
+            }
+          }
+        `,
+      {
+        projectId: projectNodeId,
+        itemId: projectItems.item?.node_id
+      }
+    );
+    coreInfo(
+      `已将 issue ${issue_number} (node ID: ${projectItems.item?.node_id}) 从项目中移除`
+    );
   } else if (isToBePublished) {
     frameSingleSelectOptionId = finishedOptionId;
   } else if (isNeedTodo) {

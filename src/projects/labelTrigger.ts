@@ -1,6 +1,6 @@
 import { AddProjectV2ItemResult, Octokit } from '../types/index';
 import { context } from '@actions/github';
-import { coreError, coreInfo } from '../utils/coreAlias';
+import { coreError, coreInfo, coreWarning } from '../utils/coreAlias';
 import { getOrgProjectV2 } from '../utils/github/query/queryOrgProjectV2';
 import { queryProjectNodeId } from '../utils/github/shared/queryProjectNodeId';
 import { queryProjectField } from '../utils/github/shared/queryProjectField';
@@ -93,6 +93,13 @@ export const labelTrigger = async (octokit: Octokit, projectId: number) => {
   );
 
   let projectItemId = projectItem.item?.node_id;
+
+  if (!projectItem.isInProject && !isUnconfirmedRemoved) {
+    coreWarning(
+      `issue ${issue_number} 不在项目中，且不是移除 unconfirmed 的操作，无法处理`
+    );
+    return;
+  }
 
   // 8. 准备项目字段信息
   const frameField = await queryProjectField(

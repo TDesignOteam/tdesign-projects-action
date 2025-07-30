@@ -23,6 +23,10 @@ export const issueTrigger = async (octokit: Octokit, projectId: number) => {
       coreInfo(`label: ${label.name}`);
       return label.name === 'to be published';
     });
+    if (issueDetail.state === 'open') {
+      coreWarning(`创建 issue ${issue_number} `);
+      return;
+    }
 
     if (issueDetail.state === 'closed' && !hasTargetLabel) {
       const project = await getOrgProjectV2(octokit, owner, projectId);
@@ -71,6 +75,7 @@ export const issueTrigger = async (octokit: Octokit, projectId: number) => {
         `已将 issue ${issue_number} (node ID: ${projectItems.item?.node_id}) 从项目中移除`
       );
     }
+
     coreError(`未匹配到事件，当前 issue 状态为: ${issueDetail.state}`);
   } catch (error) {
     console.error('Error checking issue:', error);

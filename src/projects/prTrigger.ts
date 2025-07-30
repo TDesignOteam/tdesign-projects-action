@@ -18,7 +18,10 @@ const extractIssueNumber = (
   owner: string,
   repo: string
 ): number[] => {
+  coreInfo(`Extracting issues from body: ${extractBody}`);
+  // 使用正则表达式匹配 #123 或 owner/repo#123 格式
   const issueRegex = /(?:(\w[\w-]*)\/(\w[\w-]*)#(\d+))|#(\d+)/g;
+  // todo: 匹配本仓库的 https://github.com/xx/xx/issues/123
 
   const issues: number[] = [];
   let match: RegExpExecArray | null;

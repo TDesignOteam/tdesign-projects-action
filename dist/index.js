@@ -31864,6 +31864,10 @@ const issueTrigger = async (octokit, projectId) => {
             coreExports.info(`label: ${label.name}`);
             return label.name === 'to be published';
         });
+        if (issueDetail.state === 'open') {
+            coreExports.warning(`创建 issue ${issue_number} `);
+            return;
+        }
         if (issueDetail.state === 'closed' && !hasTargetLabel) {
             const project = await getOrgProjectV2(octokit, owner, projectId);
             if (!project) {

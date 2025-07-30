@@ -388,7 +388,7 @@ export const labelTrigger = async (octokit: Octokit, projectId: number) => {
 
     case 'NOT_ADD_TO_PROJECT':
       coreWarning(
-        `issue ${issue_number} 不在项目中，且移除 unconfirmed 标签,但是却不是需要添加到项目的标签 ${currentLabels.join(', ')}`
+        `issue ${issue_number} 不在项目中，且移除 🧐 unconfirmed 标签,但是却不是需要添加到项目的标签 ${currentLabels.join(', ')}`
       );
       return;
 
@@ -398,7 +398,7 @@ export const labelTrigger = async (octokit: Octokit, projectId: number) => {
 
     case 'INVALID_OPERATION':
       coreWarning(
-        `issue ${issue_number} 不在项目中，且不是移除 unconfirmed 的操作`
+        `issue ${issue_number} 不在项目中，且不是移除 🧐 unconfirmed 的操作`
       );
       return;
   }

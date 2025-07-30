@@ -142,6 +142,8 @@ export const prTrigger = async (octokit: Octokit, projectId: number) => {
     }
 
     issues.forEach(async (issueNumber) => {
+      coreInfo(`Processing issue #${issueNumber} `);
+
       const projectItem = await queryIssueInProjectV2Items(
         octokit,
         owner,

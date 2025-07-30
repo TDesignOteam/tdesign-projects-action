@@ -31680,13 +31680,13 @@ const labelTrigger = async (octokit, projectId) => {
             frameSingleSelectOptionId = needToDoOptionId;
             break;
         case 'NOT_ADD_TO_PROJECT':
-            coreExports.warning(`issue ${issue_number} 不在项目中，且移除 unconfirmed 标签,但是却不是需要添加到项目的标签 ${currentLabels.join(', ')}`);
+            coreExports.warning(`issue ${issue_number} 不在项目中，且移除 🧐 unconfirmed 标签,但是却不是需要添加到项目的标签 ${currentLabels.join(', ')}`);
             return;
         case 'NO_UPDATE':
             coreExports.warning('issue 在项目中但无需更新状态');
             return;
         case 'INVALID_OPERATION':
-            coreExports.warning(`issue ${issue_number} 不在项目中，且不是移除 unconfirmed 的操作`);
+            coreExports.warning(`issue ${issue_number} 不在项目中，且不是移除 🧐 unconfirmed 的操作`);
             return;
     }
     if (!frameSingleSelectOptionId) {
@@ -31796,6 +31796,7 @@ const prTrigger = async (octokit, projectId) => {
             return null;
         }
         issues.forEach(async (issueNumber) => {
+            coreExports.info(`Processing issue #${issueNumber} `);
             const projectItem = await queryIssueInProjectV2Items(octokit, owner, repo, projectNodeId, issueNumber);
             coreExports.info(`Project item: ${JSON.stringify(projectItem, null, 2)}`);
             if (projectItem.isInProject) {

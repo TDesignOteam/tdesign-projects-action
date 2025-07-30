@@ -1,6 +1,6 @@
 import { AddProjectV2ItemResult, Octokit, ProjectV2 } from '../types/index';
 import { context } from '@actions/github';
-import { coreError, coreInfo } from '../utils/coreAlias';
+import { coreError, coreInfo, coreWarning } from '../utils/coreAlias';
 import { getOrgProjectV2 } from '../utils/github/query/queryOrgProjectV2';
 import { queryProjectNodeId } from '../utils/github/shared/queryProjectNodeId';
 import { queryProjectField } from '../utils/github/shared/queryProjectField';
@@ -387,17 +387,17 @@ export const labelTrigger = async (octokit: Octokit, projectId: number) => {
       break;
 
     case 'NOT_ADD_TO_PROJECT':
-      coreInfo(
+      coreWarning(
         `issue ${issue_number} 不在项目中，且移除 unconfirmed 标签,但是却不是需要添加到项目的标签 ${currentLabels.join(', ')}`
       );
       return;
 
     case 'NO_UPDATE':
-      coreInfo('issue 在项目中但无需更新状态');
+      coreWarning('issue 在项目中但无需更新状态');
       return;
 
     case 'INVALID_OPERATION':
-      coreError(
+      coreWarning(
         `issue ${issue_number} 不在项目中，且不是移除 unconfirmed 的操作`
       );
       return;

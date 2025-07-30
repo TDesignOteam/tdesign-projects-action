@@ -162,7 +162,8 @@ function determineOperationType(params: {
   | 'UPDATE_TO_FINISHED'
   | 'UPDATE_TO_TODO'
   | 'NO_UPDATE'
-  | 'INVALID_OPERATION' {
+  | 'INVALID_OPERATION'
+  | 'NOT_ADD_TO_PROJECT' {
   const {
     isInProject,
     isUnconfirmedRemoved,
@@ -170,12 +171,15 @@ function determineOperationType(params: {
     isToBePublished
   } = params;
 
-  if (isUnconfirmedRemoved && !isInProject && isShouldNeedTodo) {
-    return 'ADD_TO_PROJECT';
+  if (!isInProject && !isUnconfirmedRemoved) {
+    return 'INVALID_OPERATION';
   }
 
-  if (!isInProject) {
-    return 'INVALID_OPERATION';
+  if (isUnconfirmedRemoved && !isInProject) {
+    if (isShouldNeedTodo) {
+      return 'ADD_TO_PROJECT';
+    }
+    return 'NOT_ADD_TO_PROJECT';
   }
 
   if (isToBePublished) {
@@ -382,12 +386,20 @@ export const labelTrigger = async (octokit: Octokit, projectId: number) => {
       frameSingleSelectOptionId = needToDoOptionId;
       break;
 
+    case 'NOT_ADD_TO_PROJECT':
+      coreInfo(
+        `issue ${issue_number} 不在项目中，且移除 unconfirmed 标签,但是却不是需要添加到项目的标签 ${currentLabels.join(', ')}`
+      );
+      return;
+
     case 'NO_UPDATE':
       coreInfo('issue 在项目中但无需更新状态');
       return;
 
     case 'INVALID_OPERATION':
-      coreError('issue 不在项目中，且不符合添加条件');
+      coreError(
+        `issue ${issue_number} 不在项目中，且不是移除 unconfirmed 的操作`
+      );
       return;
   }
 

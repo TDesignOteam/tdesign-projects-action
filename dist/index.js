@@ -31792,7 +31792,8 @@ const prTrigger = async (octokit, projectId) => {
     `;
         const issues = extractIssueNumber(prResultMessageStr, owner, repo);
         if (issues.length === 0) {
-            coreExports.warning(`未找到关联的 issue, 这是 issue 匹配内容: ${prResultMessageStr}`);
+            coreExports.warning(`未找到关联的 issue!
+        \n 这是 issue 匹配内容: ${prResultMessageStr}`);
             return;
         }
         coreExports.info(`PR #${prNumber} linked issues: ${issues.join(', ')}`);

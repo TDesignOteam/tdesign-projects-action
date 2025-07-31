@@ -135,7 +135,8 @@ export const prTrigger = async (octokit: Octokit, projectId: number) => {
 
     if (issues.length === 0) {
       coreWarning(
-        `未找到关联的 issue, 这是 issue 匹配内容: ${prResultMessageStr}`
+        `未找到关联的 issue!
+        \n 这是 issue 匹配内容: ${prResultMessageStr}`
       );
       return;
     }

@@ -18,7 +18,6 @@ const extractIssueNumber = (
   owner: string,
   repo: string
 ): number[] => {
-  coreInfo(`Extracting issues from body: ${extractBody}`);
   // 使用正则表达式匹配 #123、owner/repo#123、https://github.com/owner/repo/issues/123 格式
   const issueRegex =
     /(?:(\w[\w-]*)\/(\w[\w-]*)#(\d+))|#(\d+)|(https?:\/\/github\.com\/(\w[\w-]*)\/(\w[\w-]*)\/issues\/(\d+))/g;
@@ -135,7 +134,9 @@ export const prTrigger = async (octokit: Octokit, projectId: number) => {
     const issues = extractIssueNumber(prResultMessageStr, owner, repo);
 
     if (issues.length === 0) {
-      coreWarning(`未找到关联的 issue ${prResultMessageStr}`);
+      coreWarning(
+        `未找到关联的 issue, 这是 issue 匹配内容: ${prResultMessageStr}`
+      );
       return;
     }
     coreInfo(`PR #${prNumber} linked issues: ${issues.join(', ')}`);

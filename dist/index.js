@@ -31715,7 +31715,6 @@ const labelTrigger = async (octokit, projectId) => {
  * @description 只匹配当前仓库的 issue
  */
 const extractIssueNumber = (extractBody, owner, repo) => {
-    coreExports.info(`Extracting issues from body: ${extractBody}`);
     // 使用正则表达式匹配 #123、owner/repo#123、https://github.com/owner/repo/issues/123 格式
     const issueRegex = /(?:(\w[\w-]*)\/(\w[\w-]*)#(\d+))|#(\d+)|(https?:\/\/github\.com\/(\w[\w-]*)\/(\w[\w-]*)\/issues\/(\d+))/g;
     const issuesSet = new Set();
@@ -31793,7 +31792,7 @@ const prTrigger = async (octokit, projectId) => {
     `;
         const issues = extractIssueNumber(prResultMessageStr, owner, repo);
         if (issues.length === 0) {
-            coreExports.warning(`未找到关联的 issue ${prResultMessageStr}`);
+            coreExports.warning(`未找到关联的 issue, 这是 issue 匹配内容: ${prResultMessageStr}`);
             return;
         }
         coreExports.info(`PR #${prNumber} linked issues: ${issues.join(', ')}`);

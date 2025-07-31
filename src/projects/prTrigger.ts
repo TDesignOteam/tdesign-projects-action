@@ -13,32 +13,32 @@ import { updateSingleSelectOptionField } from '../utils/github/updates/updateFie
  * @description 只匹配当前仓库的 issue
  */
 
-const extractIssueNumber = (
-  extractBody: string,
-  owner: string,
-  repo: string
-): number[] => {
-  coreInfo(`Extracting issues from body: ${extractBody}`);
-  // 使用正则表达式匹配 #123 或 owner/repo#123 格式
-  const issueRegex = /(?:(\w[\w-]*)\/(\w[\w-]*)#(\d+))|#(\d+)/g;
-  // todo: 匹配本仓库的 https://github.com/xx/xx/issues/123
+// const extractIssueNumber = (
+//   extractBody: string,
+//   owner: string,
+//   repo: string
+// ): number[] => {
+//   coreInfo(`Extracting issues from body: ${extractBody}`);
+//   // 使用正则表达式匹配 #123 或 owner/repo#123 格式
+//   const issueRegex = /(?:(\w[\w-]*)\/(\w[\w-]*)#(\d+))|#(\d+)/g;
+//   // todo: 匹配本仓库的 https://github.com/xx/xx/issues/123
 
-  const issues: number[] = [];
-  let match: RegExpExecArray | null;
+//   const issues: number[] = [];
+//   let match: RegExpExecArray | null;
 
-  while ((match = issueRegex.exec(extractBody)) !== null) {
-    if (match[3]) {
-      // owner/repo#123 格式
-      if (match[1] === owner && match[2] === repo) {
-        issues.push(Number(match[3]));
-      }
-    } else if (match[4]) {
-      // #123 格式
-      issues.push(Number(match[4]));
-    }
-  }
-  return issues;
-};
+//   while ((match = issueRegex.exec(extractBody)) !== null) {
+//     if (match[3]) {
+//       // owner/repo#123 格式
+//       if (match[1] === owner && match[2] === repo) {
+//         issues.push(Number(match[3]));
+//       }
+//     } else if (match[4]) {
+//       // #123 格式
+//       issues.push(Number(match[4]));
+//     }
+//   }
+//   return issues;
+// };
 
 type PRDetailsQueryResult = {
   repository: {
@@ -80,36 +80,24 @@ export const prTrigger = async (octokit: Octokit, projectId: number) => {
 
   try {
     const query = `
-      query GetPRDetails($owner: String!, $repo: String!, $prNumber: Int!) {
-        repository(owner: $owner, name: $repo) {
-          pullRequest(number: $prNumber) {
-            title
-            body
-            commits(first: 100) {
-              nodes {
-                commit {
-                  message
-                }
-              }
-            }
-            reviews(last: 100) {
-              nodes {
-                body
-                comments(first: 100) {
-                  nodes {
-                    body
+        query GetPRIssueConnections($owner: String!, $repo: String!, $prNumber: Int!) {
+          repository(owner: $owner, name: $repo) {
+            pullRequest(number: $prNumber) {
+              timelineItems(first: 100, itemTypes: [CONNECTED_EVENT, DISCONNECTED_EVENT]) {
+                nodes {
+                  ... on ConnectedEvent {
+                    subject {
+                      ... on Issue {
+                        number
+                        title
+                      }
+                    }
                   }
                 }
               }
             }
-            comments(first: 100) {
-              nodes {
-                body
-              }
-            }
           }
         }
-      }
       `;
 
     const result = await octokit.graphql<PRDetailsQueryResult>(query, {
@@ -118,16 +106,19 @@ export const prTrigger = async (octokit: Octokit, projectId: number) => {
       prNumber
     });
 
-    const prResultMessageStr = `
-     ${result.repository?.pullRequest?.title || ''}
-      ${result.repository?.pullRequest?.body || ''}
-      ${result.repository?.pullRequest?.commits.nodes.map((commit) => commit.commit.message).join('\n') || ''}
-      ${result.repository?.pullRequest?.reviews.nodes.map((review) => review.body).join('\n') || ''}
-      ${result.repository?.pullRequest?.reviews.nodes.flatMap((review) => review.comments.nodes.map((comment) => comment.body)).join('\n') || ''}
-      ${result.repository?.pullRequest?.comments.nodes.map((comment) => comment.body).join('\n') || ''}
-    `;
+    coreInfo(`PR #${prNumber} details: ${JSON.stringify(result, null, 2)}`);
 
-    const issues = extractIssueNumber(prResultMessageStr, owner, repo);
+    // const prResultMessageStr = `
+    //  ${result.repository?.pullRequest?.title || ''}
+    //   ${result.repository?.pullRequest?.body || ''}
+    //   ${result.repository?.pullRequest?.commits.nodes.map((commit) => commit.commit.message).join('\n') || ''}
+    //   ${result.repository?.pullRequest?.reviews.nodes.map((review) => review.body).join('\n') || ''}
+    //   ${result.repository?.pullRequest?.reviews.nodes.flatMap((review) => review.comments.nodes.map((comment) => comment.body)).join('\n') || ''}
+    //   ${result.repository?.pullRequest?.comments.nodes.map((comment) => comment.body).join('\n') || ''}
+    // `;
+
+    // const issues = extractIssueNumber(prResultMessageStr, owner, repo);
+    const issues = [123];
     coreInfo(`PR #${prNumber} linked issues: ${issues.join(', ')}`);
 
     const project = await getOrgProjectV2(octokit, owner, projectId);

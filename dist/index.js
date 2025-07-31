@@ -31711,27 +31711,6 @@ const labelTrigger = async (octokit, projectId) => {
     });
 };
 
-/*
- * @description 只匹配当前仓库的 issue
- */
-const extractIssueNumber = (extractBody, owner, repo) => {
-    const issueRegex = /(?:(\w[\w-]*)\/(\w[\w-]*)#(\d+))|#(\d+)/g;
-    const issues = [];
-    let match;
-    while ((match = issueRegex.exec(extractBody)) !== null) {
-        if (match[3]) {
-            // owner/repo#123 格式
-            if (match[1] === owner && match[2] === repo) {
-                issues.push(Number(match[3]));
-            }
-        }
-        else if (match[4]) {
-            // #123 格式
-            issues.push(Number(match[4]));
-        }
-    }
-    return issues;
-};
 const prTrigger = async (octokit, projectId) => {
     const { owner, repo } = githubExports.context.repo;
     const prNumber = githubExports.context.payload.pull_request?.number;
@@ -31739,51 +31718,41 @@ const prTrigger = async (octokit, projectId) => {
     const isMerged = githubExports.context.payload.pull_request?.merged;
     try {
         const query = `
-      query GetPRDetails($owner: String!, $repo: String!, $prNumber: Int!) {
-        repository(owner: $owner, name: $repo) {
-          pullRequest(number: $prNumber) {
-            title
-            body
-            commits(first: 100) {
-              nodes {
-                commit {
-                  message
-                }
-              }
-            }
-            reviews(last: 100) {
-              nodes {
-                body
-                comments(first: 100) {
-                  nodes {
-                    body
+        query GetPRIssueConnections($owner: String!, $repo: String!, $prNumber: Int!) {
+          repository(owner: $owner, name: $repo) {
+            pullRequest(number: $prNumber) {
+              timelineItems(first: 100, itemTypes: [CONNECTED_EVENT, DISCONNECTED_EVENT]) {
+                nodes {
+                  ... on ConnectedEvent {
+                    subject {
+                      ... on Issue {
+                        number
+                        title
+                      }
+                    }
                   }
                 }
               }
             }
-            comments(first: 100) {
-              nodes {
-                body
-              }
-            }
           }
         }
-      }
       `;
         const result = await octokit.graphql(query, {
             owner,
             repo,
             prNumber
         });
-        const prResultMessageStr = `
-     ${result.repository?.pullRequest?.title || ''}
-      ${result.repository?.pullRequest?.body || ''}
-      ${result.repository?.pullRequest?.commits.nodes.map((commit) => commit.commit.message).join('\n') || ''}
-      ${result.repository?.pullRequest?.reviews.nodes.map((review) => review.body).join('\n') || ''}
-      ${result.repository?.pullRequest?.reviews.nodes.flatMap((review) => review.comments.nodes.map((comment) => comment.body)).join('\n') || ''}
-      ${result.repository?.pullRequest?.comments.nodes.map((comment) => comment.body).join('\n') || ''}
-    `;
-        const issues = extractIssueNumber(prResultMessageStr, owner, repo);
+        coreExports.info(`PR #${prNumber} details: ${JSON.stringify(result, null, 2)}`);
+        // const prResultMessageStr = `
+        //  ${result.repository?.pullRequest?.title || ''}
+        //   ${result.repository?.pullRequest?.body || ''}
+        //   ${result.repository?.pullRequest?.commits.nodes.map((commit) => commit.commit.message).join('\n') || ''}
+        //   ${result.repository?.pullRequest?.reviews.nodes.map((review) => review.body).join('\n') || ''}
+        //   ${result.repository?.pullRequest?.reviews.nodes.flatMap((review) => review.comments.nodes.map((comment) => comment.body)).join('\n') || ''}
+        //   ${result.repository?.pullRequest?.comments.nodes.map((comment) => comment.body).join('\n') || ''}
+        // `;
+        // const issues = extractIssueNumber(prResultMessageStr, owner, repo);
+        const issues = [123];
         coreExports.info(`PR #${prNumber} linked issues: ${issues.join(', ')}`);
         const project = await getOrgProjectV2(octokit, owner, projectId);
         if (!project) {

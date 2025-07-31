@@ -1,6 +1,6 @@
 import { context } from '@actions/github';
 import { Octokit } from '../types';
-import { coreError, coreInfo } from '../utils/coreAlias';
+import { coreError, coreInfo, coreWarning } from '../utils/coreAlias';
 import { queryIssueInProjectV2Items } from '../utils/github/query/queryIssueInProjectV2Items';
 import { getOrgProjectV2 } from '../utils/github/query/queryOrgProjectV2';
 import { queryProjectNodeId } from '../utils/github/shared/queryProjectNodeId';
@@ -13,32 +13,37 @@ import { updateSingleSelectOptionField } from '../utils/github/updates/updateFie
  * @description 只匹配当前仓库的 issue
  */
 
-// const extractIssueNumber = (
-//   extractBody: string,
-//   owner: string,
-//   repo: string
-// ): number[] => {
-//   coreInfo(`Extracting issues from body: ${extractBody}`);
-//   // 使用正则表达式匹配 #123 或 owner/repo#123 格式
-//   const issueRegex = /(?:(\w[\w-]*)\/(\w[\w-]*)#(\d+))|#(\d+)/g;
-//   // todo: 匹配本仓库的 https://github.com/xx/xx/issues/123
+const extractIssueNumber = (
+  extractBody: string,
+  owner: string,
+  repo: string
+): number[] => {
+  coreInfo(`Extracting issues from body: ${extractBody}`);
+  // 使用正则表达式匹配 #123、owner/repo#123、https://github.com/owner/repo/issues/123 格式
+  const issueRegex =
+    /(?:(\w[\w-]*)\/(\w[\w-]*)#(\d+))|#(\d+)|(https?:\/\/github\.com\/(\w[\w-]*)\/(\w[\w-]*)\/issues\/(\d+))/g;
 
-//   const issues: number[] = [];
-//   let match: RegExpExecArray | null;
+  const issuesSet = new Set<number>();
+  let match: RegExpExecArray | null;
 
-//   while ((match = issueRegex.exec(extractBody)) !== null) {
-//     if (match[3]) {
-//       // owner/repo#123 格式
-//       if (match[1] === owner && match[2] === repo) {
-//         issues.push(Number(match[3]));
-//       }
-//     } else if (match[4]) {
-//       // #123 格式
-//       issues.push(Number(match[4]));
-//     }
-//   }
-//   return issues;
-// };
+  while ((match = issueRegex.exec(extractBody)) !== null) {
+    if (match[3]) {
+      // owner/repo#123 格式
+      if (match[1] === owner && match[2] === repo) {
+        issuesSet.add(Number(match[3]));
+      }
+    } else if (match[4]) {
+      // #123 格式
+      issuesSet.add(Number(match[4]));
+    } else if (match[8]) {
+      // https://github.com/owner/repo/issues/123 格式
+      if (match[6] === owner && match[7] === repo) {
+        issuesSet.add(Number(match[8]));
+      }
+    }
+  }
+  return Array.from(issuesSet);
+};
 
 type PRDetailsQueryResult = {
   repository: {
@@ -67,27 +72,6 @@ type PRDetailsQueryResult = {
           body: string;
         }>;
       };
-      closingIssuesReferences: {
-        nodes: Array<{
-          number: number;
-          title: string;
-        }>;
-      };
-      timelineItems: {
-        nodes: Array<{
-          __typename: string;
-          source?: {
-            __typename: string;
-            number?: number;
-            title?: string;
-          };
-          target?: {
-            __typename: string;
-            number?: number;
-            title?: string;
-          };
-        }>;
-      };
     } | null;
   } | null;
 };
@@ -101,38 +85,36 @@ export const prTrigger = async (octokit: Octokit, projectId: number) => {
 
   try {
     const query = `
-        query GetPRIssueConnections($owner: String!, $repo: String!, $prNumber: Int!) {
-          repository(owner: $owner, name: $repo) {
-            pullRequest(number: $prNumber) {
-              closingIssuesReferences(first: 50) {
-                nodes {
-                  number
-                  title
+      query GetPRDetails($owner: String!, $repo: String!, $prNumber: Int!) {
+        repository(owner: $owner, name: $repo) {
+          pullRequest(number: $prNumber) {
+            title
+            body
+            commits(first: 100) {
+              nodes {
+                commit {
+                  message
                 }
               }
-              timelineItems(first: 100, itemTypes: [CROSS_REFERENCED_EVENT]) {
-                nodes {
-                  ... on CrossReferencedEvent {
-                    source {
-                      __typename
-                      ... on Issue {
-                        number
-                        title
-                      }
-                    }
-                    target {
-                      __typename
-                      ... on Issue {
-                        number
-                        title
-                      }
-                    }
+            }
+            reviews(last: 100) {
+              nodes {
+                body
+                comments(first: 100) {
+                  nodes {
+                    body
                   }
                 }
               }
             }
+            comments(first: 100) {
+              nodes {
+                body
+              }
+            }
           }
         }
+      }
       `;
 
     const result = await octokit.graphql<PRDetailsQueryResult>(query, {
@@ -141,38 +123,22 @@ export const prTrigger = async (octokit: Octokit, projectId: number) => {
       prNumber
     });
 
-    coreInfo(`PR #${prNumber} details: ${JSON.stringify(result, null, 2)}`);
+    const prResultMessageStr = `
+     ${result.repository?.pullRequest?.title || ''}
+      ${result.repository?.pullRequest?.body || ''}
+      ${result.repository?.pullRequest?.commits.nodes.map((commit) => commit.commit.message).join('\n') || ''}
+      ${result.repository?.pullRequest?.reviews.nodes.map((review) => review.body).join('\n') || ''}
+      ${result.repository?.pullRequest?.reviews.nodes.flatMap((review) => review.comments.nodes.map((comment) => comment.body)).join('\n') || ''}
+      ${result.repository?.pullRequest?.comments.nodes.map((comment) => comment.body).join('\n') || ''}
+    `;
 
-    // 从 closingIssuesReferences 和 cross-referenced events 中提取 issues
-    const closingIssues =
-      result.repository?.pullRequest?.closingIssuesReferences.nodes || [];
-    const crossReferencedEvents =
-      result.repository?.pullRequest?.timelineItems.nodes || [];
+    const issues = extractIssueNumber(prResultMessageStr, owner, repo);
 
-    // 合并所有关联的 issues，去重
-    const allIssues = new Set<number>();
-
-    // 添加 closing issues（PR 会关闭的 issues）
-    closingIssues.forEach((issue) => {
-      allIssues.add(issue.number);
-    });
-
-    // 添加 cross-referenced issues（PR 引用的 issues）
-    crossReferencedEvents.forEach((event) => {
-      // 检查 source 是否是 issue（即 PR 引用的 issue）
-      if (event.source?.__typename === 'Issue' && event.source.number) {
-        allIssues.add(event.source.number);
-      }
-      // 检查 target 是否是 issue（即 issue 引用的 PR）
-      if (event.target?.__typename === 'Issue' && event.target.number) {
-        allIssues.add(event.target.number);
-      }
-    });
-
-    const issues = Array.from(allIssues);
-    coreInfo(`${issues.join(', ')}}`);
-    return;
-    // coreInfo(`PR #${prNumber} linked issues: ${issues.join(', ')}`);
+    if (issues.length === 0) {
+      coreWarning(`未找到关联的 issue ${prResultMessageStr}`);
+      return;
+    }
+    coreInfo(`PR #${prNumber} linked issues: ${issues.join(', ')}`);
 
     const project = await getOrgProjectV2(octokit, owner, projectId);
 

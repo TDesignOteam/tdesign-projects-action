@@ -31721,10 +31721,24 @@ const prTrigger = async (octokit, projectId) => {
         query GetPRIssueConnections($owner: String!, $repo: String!, $prNumber: Int!) {
           repository(owner: $owner, name: $repo) {
             pullRequest(number: $prNumber) {
-              timelineItems(first: 100, itemTypes: [CONNECTED_EVENT, DISCONNECTED_EVENT]) {
+              closingIssuesReferences(first: 50) {
                 nodes {
-                  ... on ConnectedEvent {
-                    subject {
+                  number
+                  title
+                }
+              }
+              timelineItems(first: 100, itemTypes: [CROSS_REFERENCED_EVENT]) {
+                nodes {
+                  ... on CrossReferencedEvent {
+                    source {
+                      __typename
+                      ... on Issue {
+                        number
+                        title
+                      }
+                    }
+                    target {
+                      __typename
                       ... on Issue {
                         number
                         title
@@ -31743,17 +31757,30 @@ const prTrigger = async (octokit, projectId) => {
             prNumber
         });
         coreExports.info(`PR #${prNumber} details: ${JSON.stringify(result, null, 2)}`);
-        // const prResultMessageStr = `
-        //  ${result.repository?.pullRequest?.title || ''}
-        //   ${result.repository?.pullRequest?.body || ''}
-        //   ${result.repository?.pullRequest?.commits.nodes.map((commit) => commit.commit.message).join('\n') || ''}
-        //   ${result.repository?.pullRequest?.reviews.nodes.map((review) => review.body).join('\n') || ''}
-        //   ${result.repository?.pullRequest?.reviews.nodes.flatMap((review) => review.comments.nodes.map((comment) => comment.body)).join('\n') || ''}
-        //   ${result.repository?.pullRequest?.comments.nodes.map((comment) => comment.body).join('\n') || ''}
-        // `;
-        // const issues = extractIssueNumber(prResultMessageStr, owner, repo);
-        const issues = [123];
-        coreExports.info(`PR #${prNumber} linked issues: ${issues.join(', ')}`);
+        // 从 closingIssuesReferences 和 cross-referenced events 中提取 issues
+        const closingIssues = result.repository?.pullRequest?.closingIssuesReferences.nodes || [];
+        const crossReferencedEvents = result.repository?.pullRequest?.timelineItems.nodes || [];
+        // 合并所有关联的 issues，去重
+        const allIssues = new Set();
+        // 添加 closing issues（PR 会关闭的 issues）
+        closingIssues.forEach((issue) => {
+            allIssues.add(issue.number);
+        });
+        // 添加 cross-referenced issues（PR 引用的 issues）
+        crossReferencedEvents.forEach((event) => {
+            // 检查 source 是否是 issue（即 PR 引用的 issue）
+            if (event.source?.__typename === 'Issue' && event.source.number) {
+                allIssues.add(event.source.number);
+            }
+            // 检查 target 是否是 issue（即 issue 引用的 PR）
+            if (event.target?.__typename === 'Issue' && event.target.number) {
+                allIssues.add(event.target.number);
+            }
+        });
+        const issues = Array.from(allIssues);
+        coreExports.info(`${issues.join(', ')}}`);
+        return;
+        // coreInfo(`PR #${prNumber} linked issues: ${issues.join(', ')}`);
         const project = await getOrgProjectV2(octokit, owner, projectId);
         if (!project) {
             coreExports.error('未提供 Project 对象');
@@ -31835,7 +31862,7 @@ const issueTrigger = async (octokit, projectId) => {
             return label.name === 'to be published';
         });
         if (issueDetail.state === 'open') {
-            coreExports.warning(`创建 issue ${issue_number} `);
+            coreExports.notice(`成功创建 issue ${issue_number} `);
             return;
         }
         if (issueDetail.state === 'closed' && !hasTargetLabel) {

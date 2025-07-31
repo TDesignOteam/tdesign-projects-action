@@ -1,6 +1,11 @@
 import { context } from '@actions/github';
 import { Octokit } from '../types';
-import { coreError, coreInfo, coreWarning } from '../utils/coreAlias';
+import {
+  coreError,
+  coreInfo,
+  coreNotice,
+  coreWarning
+} from '../utils/coreAlias';
 import { getOrgProjectV2 } from '../utils/github/query/queryOrgProjectV2';
 import { queryProjectNodeId } from '../utils/github/shared/queryProjectNodeId';
 import { queryIssueInProjectV2Items } from '../utils/github/query/queryIssueInProjectV2Items';
@@ -24,7 +29,7 @@ export const issueTrigger = async (octokit: Octokit, projectId: number) => {
       return label.name === 'to be published';
     });
     if (issueDetail.state === 'open') {
-      coreWarning(`创建 issue ${issue_number} `);
+      coreNotice(`成功创建 issue ${issue_number} `);
       return;
     }
 

@@ -1,6 +1,6 @@
 import { context } from '@actions/github';
 import { Octokit } from '../types';
-import { coreError, coreInfo } from '../utils/coreAlias';
+import { coreError, coreInfo, coreWarning } from '../utils/coreAlias';
 import { queryIssueInProjectV2Items } from '../utils/github/query/queryIssueInProjectV2Items';
 import { getOrgProjectV2 } from '../utils/github/query/queryOrgProjectV2';
 import { queryProjectNodeId } from '../utils/github/shared/queryProjectNodeId';
@@ -18,23 +18,30 @@ const extractIssueNumber = (
   owner: string,
   repo: string
 ): number[] => {
-  const issueRegex = /(?:(\w[\w-]*)\/(\w[\w-]*)#(\d+))|#(\d+)/g;
+  // 使用正则表达式匹配 #123、owner/repo#123、https://github.com/owner/repo/issues/123 格式
+  const issueRegex =
+    /(?:(\w[\w-]*)\/(\w[\w-]*)#(\d+))|#(\d+)|(https?:\/\/github\.com\/(\w[\w-]*)\/(\w[\w-]*)\/issues\/(\d+))/g;
 
-  const issues: number[] = [];
+  const issuesSet = new Set<number>();
   let match: RegExpExecArray | null;
 
   while ((match = issueRegex.exec(extractBody)) !== null) {
     if (match[3]) {
       // owner/repo#123 格式
       if (match[1] === owner && match[2] === repo) {
-        issues.push(Number(match[3]));
+        issuesSet.add(Number(match[3]));
       }
     } else if (match[4]) {
       // #123 格式
-      issues.push(Number(match[4]));
+      issuesSet.add(Number(match[4]));
+    } else if (match[8]) {
+      // https://github.com/owner/repo/issues/123 格式
+      if (match[6] === owner && match[7] === repo) {
+        issuesSet.add(Number(match[8]));
+      }
     }
   }
-  return issues;
+  return Array.from(issuesSet);
 };
 
 type PRDetailsQueryResult = {
@@ -125,6 +132,14 @@ export const prTrigger = async (octokit: Octokit, projectId: number) => {
     `;
 
     const issues = extractIssueNumber(prResultMessageStr, owner, repo);
+
+    if (issues.length === 0) {
+      coreWarning(
+        `未找到关联的 issue!
+        \n 这是 issue 匹配内容: ${prResultMessageStr}`
+      );
+      return;
+    }
     coreInfo(`PR #${prNumber} linked issues: ${issues.join(', ')}`);
 
     const project = await getOrgProjectV2(octokit, owner, projectId);
@@ -142,6 +157,8 @@ export const prTrigger = async (octokit: Octokit, projectId: number) => {
     }
 
     issues.forEach(async (issueNumber) => {
+      coreInfo(`Processing issue #${issueNumber} `);
+
       const projectItem = await queryIssueInProjectV2Items(
         octokit,
         owner,

@@ -1,5 +1,5 @@
-import { Octokit } from '../../../types/index';
-import { info as coreInfo, error as coreError } from '@actions/core';
+import type { Octokit } from '../../../types/index'
+import { error as coreError, info as coreInfo } from '@actions/core'
 
 /**
  * 获取 Issue Node ID 的结果接口
@@ -7,11 +7,11 @@ import { info as coreInfo, error as coreError } from '@actions/core';
 export interface QueryIssueNodeId {
   repository?: {
     issue?: {
-      id: string; // Issue 的全局 Node ID
-      number: number; // Issue 的数字编号
-      title: string; // Issue 标题
-    };
-  };
+      id: string // Issue 的全局 Node ID
+      number: number // Issue 的数字编号
+      title: string // Issue 标题
+    }
+  }
 }
 
 /**
@@ -26,16 +26,16 @@ export async function queryIssueNodeId(
   octokit: Octokit,
   owner: string,
   repo: string,
-  issueNumber: number
+  issueNumber: number,
 ): Promise<string> {
   // 参数验证
   if (!owner || !repo || !issueNumber || issueNumber <= 0) {
-    const errorMsg = `无效参数: owner=${owner}, repo=${repo}, issueNumber=${issueNumber}`;
-    coreError(errorMsg);
-    throw new Error(errorMsg);
+    const errorMsg = `无效参数: owner=${owner}, repo=${repo}, issueNumber=${issueNumber}`
+    coreError(errorMsg)
+    throw new Error(errorMsg)
   }
 
-  coreInfo(`查询仓库 ${owner}/${repo} 的 Issue #${issueNumber}`);
+  coreInfo(`查询仓库 ${owner}/${repo} 的 Issue #${issueNumber}`)
 
   const query = `
     query ($owner: String!, $repo: String!, $issueNumber: Int!) {
@@ -47,29 +47,30 @@ export async function queryIssueNodeId(
         }
       }
     }
-  `;
+  `
 
   try {
     const result = await octokit.graphql<QueryIssueNodeId>(query, {
       owner,
       repo,
-      issueNumber
-    });
+      issueNumber,
+    })
 
     // 检查结果有效性
     if (!result?.repository?.issue?.id) {
-      const errorMsg = `未找到 Issue #${issueNumber} 或缺少 ID`;
-      coreError(errorMsg);
-      throw new Error(errorMsg);
+      const errorMsg = `未找到 Issue #${issueNumber} 或缺少 ID`
+      coreError(errorMsg)
+      throw new Error(errorMsg)
     }
 
-    const { id, number, title } = result.repository.issue;
-    coreInfo(`成功获取 Issue #${number}: ${title} => Node ID: ${id}`);
+    const { id, number, title } = result.repository.issue
+    coreInfo(`成功获取 Issue #${number}: ${title} => Node ID: ${id}`)
 
-    return id;
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    coreError(`获取 Issue Node ID 失败: ${errorMessage}`);
-    throw error;
+    return id
+  }
+  catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    coreError(`获取 Issue Node ID 失败: ${errorMessage}`)
+    throw error
   }
 }

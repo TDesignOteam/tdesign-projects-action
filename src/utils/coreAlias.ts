@@ -1,10 +1,10 @@
-import { info, error, debug, warning, notice, setFailed } from '@actions/core';
+import { debug, error, info, notice, setFailed, warning } from '@actions/core'
 
 export {
-  info as coreInfo,
-  error as coreError,
   debug as coreDebug,
-  warning as coreWarning,
+  error as coreError,
+  info as coreInfo,
   notice as coreNotice,
-  setFailed as coreSetFailed
-};
+  setFailed as coreSetFailed,
+  warning as coreWarning,
+}

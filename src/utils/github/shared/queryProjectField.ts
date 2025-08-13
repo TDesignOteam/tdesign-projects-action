@@ -1,5 +1,5 @@
-import { coreInfo, coreError } from '../../coreAlias';
-import { ProjectV2 } from '../../../types/index';
+import type { ProjectV2 } from '../../../types/index'
+import { coreError, coreInfo } from '../../coreAlias'
 
 /**
  * 查询 field 项目字段
@@ -8,12 +8,13 @@ import { ProjectV2 } from '../../../types/index';
  * @returns 字段
  */
 export async function queryProjectField(project: ProjectV2, fieldName: string) {
-  const field = project.fields.nodes.find((f) => f.name === fieldName);
+  const field = project.fields.nodes.find(f => f.name === fieldName)
   if (field) {
-    coreInfo(`字段 "${fieldName}" 的 field_id 是: ${field?.id}`);
-    return field;
-  } else {
-    coreError(`没有找到字段 "${fieldName}"`);
-    return null;
+    coreInfo(`字段 "${fieldName}" 的 field_id 是: ${field?.id}`)
+    return field
+  }
+  else {
+    coreError(`没有找到字段 "${fieldName}"`)
+    return null
   }
 }

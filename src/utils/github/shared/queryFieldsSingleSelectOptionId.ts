@@ -1,4 +1,4 @@
-import { coreError } from '../../coreAlias';
+import { coreError } from '../../coreAlias'
 
 /**
  * 查询单选字段选项 ID
@@ -6,18 +6,15 @@ import { coreError } from '../../coreAlias';
  * @param filedName 字段名称
  * @returns 选项 ID
  */
-export const queryFieldsSingleSelectOptionId = async (
-  options: { id: string; name: string }[],
-  filedName: string
-) => {
+export async function queryFieldsSingleSelectOptionId(options: { id: string, name: string }[], filedName: string) {
   const NeedToDoOption = options.find(
-    (opt: { name: string }) => opt.name === filedName
-  );
+    (opt: { name: string }) => opt.name === filedName,
+  )
   if (!NeedToDoOption) {
     coreError(
-      `queryFieldsSingleSelectOptionId ${JSON.stringify(options, null, 2)} 未找到 ${filedName} 目标选项`
-    );
-    return null;
+      `queryFieldsSingleSelectOptionId ${JSON.stringify(options, null, 2)} 未找到 ${filedName} 目标选项`,
+    )
+    return null
   }
-  return NeedToDoOption.id;
-};
+  return NeedToDoOption.id
+}

@@ -1,13 +1,7 @@
-import { Octokit } from '../../../types';
+import type { Octokit } from '../../../types'
 
-export const updateSingleSelectOptionField = (
-  octokit: Octokit,
-  projectNodeId: string | null,
-  itemId: string,
-  fieldId: string,
-  value: { singleSelectOptionId: string | null }
-) =>
-  octokit.graphql(
+export function updateSingleSelectOptionField(octokit: Octokit, projectNodeId: string | null, itemId: string, fieldId: string, value: { singleSelectOptionId: string | null }) {
+  return octokit.graphql(
     `
       mutation UpdateField(
         $projectId: ID!,
@@ -26,6 +20,7 @@ export const updateSingleSelectOptionField = (
       projectId: projectNodeId,
       itemId,
       fieldId,
-      value
-    }
-  );
+      value,
+    },
+  )
+}

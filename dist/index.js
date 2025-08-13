@@ -27,6 +27,7 @@ import require$$6 from 'string_decoder';
 import require$$0$9 from 'diagnostics_channel';
 import require$$2$3 from 'child_process';
 import require$$6$1 from 'timers';
+import { env } from 'node:process';
 
 var commonjsGlobal = typeof globalThis !== 'undefined' ? globalThis : typeof window !== 'undefined' ? window : typeof global !== 'undefined' ? global : typeof self !== 'undefined' ? self : {};
 
@@ -31932,19 +31933,26 @@ async function run() {
             coreExports.getInput('PROJECT_TYPE'));
         const PROJECT_ID = process.env?.PROJECT_ID || coreExports.getInput('PROJECT_ID') || 1;
         coreExports.info(`PROJECT_TYPE: ${PROJECT_TYPE}`);
-        if (PROJECT_TYPE === 'LABEL2TRIGGER') {
-            await labelTrigger(octokit, Number(PROJECT_ID));
-            return;
+        switch (PROJECT_TYPE) {
+            case 'LABEL2TRIGGER':
+                await labelTrigger(octokit, Number(PROJECT_ID));
+                return;
+            case 'PR2TRIGGER':
+                // 如果是包含 'release' 的分支或 base_ref 是 'main'，则不触发 PR 逻辑
+                if (env?.GITHUB_HEAD_REF?.includes('release') ||
+                    env?.GITHUB_BASE_REF === 'main') {
+                    coreExports.info(`GITHUB_HEAD_REF: ${env?.GITHUB_HEAD_REF}, GITHUB_BASE_REF: ${env?.GITHUB_BASE_REF}`);
+                }
+                else {
+                    await prTrigger(octokit, Number(PROJECT_ID));
+                }
+                return;
+            case 'ISSUE2TRIGGER':
+                await issueTrigger(octokit, Number(PROJECT_ID));
+                return;
+            default:
+                coreExports.setFailed("PROJECT_TYPE is not valid, not 'ISSUE2TRIGGER', 'PR2TRIGGER', or 'LABEL2TRIGGER'");
         }
-        if (PROJECT_TYPE === 'PR2TRIGGER') {
-            await prTrigger(octokit, Number(PROJECT_ID));
-            return;
-        }
-        if (PROJECT_TYPE === 'ISSUE2TRIGGER') {
-            await issueTrigger(octokit, Number(PROJECT_ID));
-            return;
-        }
-        coreExports.setFailed("PROJECT_TYPE is not valid, not 'ISSUE2TRIGGER', 'PR2TRIGGER', or 'LABEL2TRIGGER'");
     }
     catch (error) {
         if (error instanceof Error) {

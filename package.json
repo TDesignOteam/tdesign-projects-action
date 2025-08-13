@@ -1,6 +1,7 @@
 {
   "name": "tdesign-projects-action",
   "description": "Only for TDesign's project management automation ci",
+  "packageManager": "pnpm@10.14.0",
   "version": "0.0.0",
   "author": "TDesignOteam",
   "type": "module",

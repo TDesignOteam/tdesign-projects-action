@@ -31941,7 +31941,7 @@ async function run() {
                 // 如果是包含 'release' 的分支或 base_ref 是 'main'，则不触发 PR 逻辑
                 if (env?.GITHUB_HEAD_REF?.includes('release') ||
                     env?.GITHUB_BASE_REF === 'main') {
-                    coreExports.info(`GITHUB_HEAD_REF: ${env?.GITHUB_HEAD_REF}, GITHUB_BASE_REF: ${env?.GITHUB_BASE_REF}`);
+                    coreExports.warning(`GITHUB_HEAD_REF: ${env?.GITHUB_HEAD_REF}, GITHUB_BASE_REF: ${env?.GITHUB_BASE_REF}, skip PR trigger`);
                 }
                 else {
                     await prTrigger(octokit, Number(PROJECT_ID));

@@ -1,5 +1,5 @@
 import { getInput } from '@actions/core';
-import { coreInfo, coreSetFailed } from './utils/coreAlias';
+import { coreInfo, coreSetFailed, coreWarning } from './utils/coreAlias';
 import { getOctokit } from '@actions/github';
 import { labelTrigger } from './projects/labelTrigger';
 import { prTrigger } from './projects/prTrigger';
@@ -38,8 +38,8 @@ async function run(): Promise<void> {
           env?.GITHUB_HEAD_REF?.includes('release') ||
           env?.GITHUB_BASE_REF === 'main'
         ) {
-          coreInfo(
-            `GITHUB_HEAD_REF: ${env?.GITHUB_HEAD_REF}, GITHUB_BASE_REF: ${env?.GITHUB_BASE_REF}`
+          coreWarning(
+            `GITHUB_HEAD_REF: ${env?.GITHUB_HEAD_REF}, GITHUB_BASE_REF: ${env?.GITHUB_BASE_REF}, skip PR trigger`
           );
         } else {
           await prTrigger(octokit, Number(PROJECT_ID));

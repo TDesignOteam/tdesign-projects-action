@@ -16,6 +16,17 @@ import { queryProjectField } from '../utils/github/shared/queryProjectField'
 import { queryProjectNodeId } from '../utils/github/shared/queryProjectNodeId'
 import { updateSingleSelectOptionField } from '../utils/github/updates/updateField'
 
+const UNCONFIRMED_LABEL = '🧐 unconfirmed'
+
+function toLogSafe(text: string): string {
+  return text.replace(/[\uD800-\uDBFF][\uDC00-\uDFFF]/g, '[emoji]')
+}
+
+function formatLabelsForLog(labels: string[]): string {
+  return labels.map(toLogSafe).join(', ')
+}
+
+const UNCONFIRMED_LABEL_LOG = toLogSafe(UNCONFIRMED_LABEL)
 // 类型声明
 interface LabelStatus {
   isShouldNeedTodo: boolean
@@ -50,7 +61,7 @@ function getLabelStatus(labels: string[]): LabelStatus {
     (name: string) => name in issueFieldOptions,
   )
   const isToBePublished = labels.includes('to be published')
-  const isUnconfirmed = labels.includes('🧐 unconfirmed')
+  const isUnconfirmed = labels.includes(UNCONFIRMED_LABEL)
   return {
     isShouldNeedTodo,
     isToBePublished,
@@ -69,7 +80,7 @@ function getIsUnconfirmedRemoved(
   const labelName
     = typeof eventLabel === 'string' ? eventLabel : eventLabel?.name || ''
 
-  return labelName === '🧐 unconfirmed'
+  return labelName === UNCONFIRMED_LABEL
 }
 
 // 组装字段更新
@@ -205,7 +216,7 @@ async function addIssueToProject(
   issueNumber: number,
 ): Promise<string> {
   coreInfo(
-    `检测到移除 🧐 unconfirmed 标签，将 issue ${issueNumber} 添加到项目并设置为待办`,
+    `检测到移除 ${UNCONFIRMED_LABEL_LOG} 标签，将 issue ${issueNumber} 添加到项目并设置为待办`,
   )
 
   const addResult: AddProjectV2ItemResult = await octokit.graphql(
@@ -274,7 +285,11 @@ export async function labelTrigger(octokit: Octokit, projectId: number) {
   coreInfo(`事件类型: ${eventAction}`)
   if (eventLabel) {
     coreInfo(
-      `涉及的标签: ${typeof eventLabel === 'string' ? eventLabel : eventLabel?.name || ''}`,
+      `涉及的标签: ${toLogSafe(
+        typeof eventLabel === 'string'
+          ? eventLabel
+          : eventLabel?.name || '',
+      )}`,
     )
   }
 
@@ -291,7 +306,7 @@ export async function labelTrigger(octokit: Octokit, projectId: number) {
   // 标签状态判断
 
   const currentLabels = labelList.data.map((label: { name: string }) => {
-    coreInfo(`标签: ${label.name}`)
+    coreInfo(`标签: ${toLogSafe(label.name)}`)
     return label.name
   })
   const { isShouldNeedTodo, isToBePublished, isUnconfirmed }
@@ -304,7 +319,7 @@ export async function labelTrigger(octokit: Octokit, projectId: number) {
       || isUnconfirmed
       || isUnconfirmedRemoved
   if (!shouldNext) {
-    coreError(`${currentLabels.join(', ')} 不符合处理条件，跳过处理`)
+    coreError(`${formatLabelsForLog(currentLabels)} 不符合处理条件，跳过处理`)
     return
   }
 
@@ -391,7 +406,7 @@ export async function labelTrigger(octokit: Octokit, projectId: number) {
 
     case 'NOT_ADD_TO_PROJECT':
       coreWarning(
-        `issue ${issue_number} 不在项目中，且移除 🧐 unconfirmed 标签,但是却不是需要添加到项目的标签 ${currentLabels.join(', ')}`,
+        `issue ${issue_number} 不在项目中，且移除 ${UNCONFIRMED_LABEL_LOG} 标签,但是却不是需要添加到项目的标签 ${formatLabelsForLog(currentLabels)}`,
       )
       return
 
@@ -401,7 +416,7 @@ export async function labelTrigger(octokit: Octokit, projectId: number) {
 
     case 'INVALID_OPERATION':
       coreWarning(
-        `issue ${issue_number} 不在项目中，且不是移除 🧐 unconfirmed 的操作`,
+        `issue ${issue_number} 不在项目中，且不是移除 ${UNCONFIRMED_LABEL_LOG} 的操作`,
       )
       return
   }

@@ -105,7 +105,7 @@ export async function queryIssueInProjectV2Items(
 
     // 获取关联项目的数量
     const hasInProject = issue.projectItems.totalCount > 0
-    const isMatchedProject = issue.projectItems.nodes.some((item) => {
+    const isMatchedProject = issue.projectItems.nodes.some((item: { id: string, project: { title: string, id: string } }) => {
       coreInfo(`关联项目项: node_id=${item.id}, project=${item.project.title}`)
       return item.project.id === projectNodeId
     })
@@ -136,6 +136,8 @@ export async function queryIssueInProjectV2Items(
   catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error)
     coreError(`检查 Issue 是否在 Project V2 中失败: ${errorMessage}`)
-    throw error
+    return {
+      isInProject: false,
+    }
   }
 }

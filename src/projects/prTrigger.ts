@@ -50,7 +50,7 @@ function extractIssueNumber(
 }
 
 function sanitizeStringForWindows(str: string): string {
-  // 移除所有 emoji
+  // 将所有 emoji 替换为 [emoji]
   return str.replace(/[\uD800-\uDBFF][\uDC00-\uDFFF]/g, '[emoji]')
 }
 

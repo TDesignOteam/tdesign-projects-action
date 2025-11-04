@@ -36,15 +36,23 @@ export async function getOrgProjectV2(
       }
     }
   `
-  const result = await octokit.graphql<GetOrgProjectV2Result>(query, {
-    org,
-    projectNumber,
-  })
-  const project = result?.organization?.projectV2
-  if (!project) {
-    coreError('未找到对应的 Project')
-    return
+  try {
+    const result = await octokit.graphql<GetOrgProjectV2Result>(query, {
+      org,
+      projectNumber,
+    })
+    const project = result?.organization?.projectV2
+    if (!project) {
+      coreError('未找到对应的 Project')
+      return
+    }
+    coreInfo(`获取 Project Node ID: ${project.id}`)
+    return project
   }
-  coreInfo(`获取 Project Node ID: ${project.id}`)
-  return project
+  catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    coreError(`获取 Project 失败: ${errorMessage}`)
+  }
+  coreError('获取 Project 失败')
+  return null
 }

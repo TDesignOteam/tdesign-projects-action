@@ -84,7 +84,8 @@ export async function issueTrigger(octokit: Octokit, projectId: number) {
     coreError(`未匹配到事件，当前 issue 状态为: ${issueDetail.state}`)
   }
   catch (error) {
-    console.error('Error checking issue:', error)
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    coreError(`Error checking issue: ${errorMessage}`)
     return false
   }
 }

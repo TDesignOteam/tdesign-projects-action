@@ -49,6 +49,11 @@ function extractIssueNumber(
   return Array.from(issuesSet)
 }
 
+function sanitizeStringForWindows(str: string): string {
+  // 将所有 emoji 替换为 [emoji]
+  return str.replace(/[\uD800-\uDBFF][\uDC00-\uDFFF]/g, '[emoji]')
+}
+
 interface PRDetailsQueryResult {
   repository: {
     pullRequest: {
@@ -141,7 +146,7 @@ export async function prTrigger(octokit: Octokit, projectId: number) {
     if (issues.length === 0) {
       coreWarning(
         `未找到关联的 issue!
-        \n 这是 issue 匹配内容: ${prResultMessageStr}`,
+        \n 这是 issue 匹配内容: ${sanitizeStringForWindows(prResultMessageStr)}`,
       )
       return
     }
@@ -247,6 +252,7 @@ export async function prTrigger(octokit: Octokit, projectId: number) {
     })
   }
   catch (error) {
-    console.error('Failed to get linked issues:', error)
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    coreError(`Failed to get linked issues: ${errorMessage}`)
   }
 }

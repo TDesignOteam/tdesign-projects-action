@@ -19920,7 +19920,7 @@ async function queryIssueInProjectV2Items(octokit, owner, repo, projectNodeId, i
 //#region src/utils/github/query/queryOrgProjectV2.ts
 var import_core$1 = /* @__PURE__ */ __toESM$1(require_core(), 1);
 async function getOrgProjectV2(octokit, org, projectNumber) {
-	const project = (await octokit.graphql(`
+	const query = `
     query ($org: String!, $projectNumber: Int!) {
       organization(login: $org) {
         projectV2(number: $projectNumber) {
@@ -19940,16 +19940,23 @@ async function getOrgProjectV2(octokit, org, projectNumber) {
         }
       }
     }
-  `, {
-		org,
-		projectNumber
-	}))?.organization?.projectV2;
-	if (!project) {
-		(0, import_core$1.error)("未找到对应的 Project");
-		return;
+  `;
+	try {
+		const project = (await octokit.graphql(query, {
+			org,
+			projectNumber
+		}))?.organization?.projectV2;
+		if (!project) {
+			(0, import_core$1.error)("未找到对应的 Project");
+			return;
+		}
+		(0, import_core$1.info)(`获取 Project Node ID: ${project.id}`);
+		return project;
+	} catch (error$2) {
+		(0, import_core$1.error)(`获取 Project 失败: ${error$2 instanceof Error ? error$2.message : String(error$2)}`);
 	}
-	(0, import_core$1.info)(`获取 Project Node ID: ${project.id}`);
-	return project;
+	(0, import_core$1.error)("获取 Project 失败");
+	return null;
 }
 
 //#endregion

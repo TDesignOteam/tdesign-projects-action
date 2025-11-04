@@ -20032,7 +20032,7 @@ async function issueTrigger(octokit, projectId) {
 		}
 		(0, import_core$2.error)(`未匹配到事件，当前 issue 状态为: ${issueDetail.state}`);
 	} catch (error$2) {
-		console.error("Error checking issue:", error$2);
+		(0, import_core$2.error)(`Error checking issue: ${error$2 instanceof Error ? error$2.message : String(error$2)}`);
 		return false;
 	}
 }
@@ -20375,6 +20375,9 @@ function extractIssueNumber(extractBody$4, owner, repo) {
 	}
 	return Array.from(issuesSet);
 }
+function sanitizeStringForWindows(str) {
+	return str.replace(/[\uD800-\uDBFF][\uDC00-\uDFFF]/g, "[emoji]");
+}
 async function prTrigger(octokit, projectId) {
 	const { owner, repo } = import_github$1.context.repo;
 	const prNumber = import_github$1.context.payload.pull_request?.number;
@@ -20428,7 +20431,7 @@ async function prTrigger(octokit, projectId) {
 		const issues = extractIssueNumber(prResultMessageStr, owner, repo);
 		if (issues.length === 0) {
 			(0, import_core$2.warning)(`未找到关联的 issue!
-        \n 这是 issue 匹配内容: ${prResultMessageStr}`);
+        \n 这是 issue 匹配内容: ${sanitizeStringForWindows(prResultMessageStr)}`);
 			return;
 		}
 		(0, import_core$2.info)(`PR #${prNumber} linked issues: ${issues.join(", ")}`);
@@ -20483,7 +20486,7 @@ async function prTrigger(octokit, projectId) {
 			}
 		});
 	} catch (error$2) {
-		console.error("Failed to get linked issues:", error$2);
+		(0, import_core$2.error)(`Failed to get linked issues: ${error$2 instanceof Error ? error$2.message : String(error$2)}`);
 	}
 }
 

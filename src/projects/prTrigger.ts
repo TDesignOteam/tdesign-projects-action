@@ -49,10 +49,10 @@ function extractIssueNumber(
   return Array.from(issuesSet)
 }
 
-function sanitizeStringForWindows(str: string): string {
-  // 将所有 emoji 替换为 [emoji]
-  return str.replace(/[\uD800-\uDBFF][\uDC00-\uDFFF]/g, '[emoji]')
-}
+// function sanitizeStringForWindows(str: string): string {
+//   // 将所有 emoji 替换为 [emoji]
+//   return str.replace(/[\uD800-\uDBFF][\uDC00-\uDFFF]/g, '[emoji]')
+// }
 
 interface PRDetailsQueryResult {
   repository: {
@@ -144,10 +144,7 @@ export async function prTrigger(octokit: Octokit, projectId: number) {
     const issues = extractIssueNumber(prResultMessageStr, owner, repo)
 
     if (issues.length === 0) {
-      coreWarning(
-        `未找到关联的 issue!
-        \n 这是 issue 匹配内容: ${sanitizeStringForWindows(prResultMessageStr)}`,
-      )
+      coreWarning(`未找到关联的 issue!`)
       return
     }
     coreInfo(`PR #${prNumber} linked issues: ${issues.join(', ')}`)

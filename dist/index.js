@@ -20375,9 +20375,6 @@ function extractIssueNumber(extractBody$4, owner, repo) {
 	}
 	return Array.from(issuesSet);
 }
-function sanitizeStringForWindows(str) {
-	return str.replace(/[\uD800-\uDBFF][\uDC00-\uDFFF]/g, "[emoji]");
-}
 async function prTrigger(octokit, projectId) {
 	const { owner, repo } = import_github$1.context.repo;
 	const prNumber = import_github$1.context.payload.pull_request?.number;
@@ -20420,18 +20417,16 @@ async function prTrigger(octokit, projectId) {
 			repo,
 			prNumber
 		});
-		const prResultMessageStr = `
+		const issues = extractIssueNumber(`
      ${result.repository?.pullRequest?.title || ""}
       ${result.repository?.pullRequest?.body || ""}
       ${result.repository?.pullRequest?.commits.nodes.map((commit) => commit.commit.message).join("\n") || ""}
       ${result.repository?.pullRequest?.reviews.nodes.map((review) => review.body).join("\n") || ""}
       ${result.repository?.pullRequest?.reviews.nodes.flatMap((review) => review.comments.nodes.map((comment) => comment.body)).join("\n") || ""}
       ${result.repository?.pullRequest?.comments.nodes.map((comment) => comment.body).join("\n") || ""}
-    `;
-		const issues = extractIssueNumber(prResultMessageStr, owner, repo);
+    `, owner, repo);
 		if (issues.length === 0) {
-			(0, import_core$2.warning)(`未找到关联的 issue!
-        \n 这是 issue 匹配内容: ${sanitizeStringForWindows(prResultMessageStr)}`);
+			(0, import_core$2.warning)(`未找到关联的 issue!`);
 			return;
 		}
 		(0, import_core$2.info)(`PR #${prNumber} linked issues: ${issues.join(", ")}`);

@@ -163,90 +163,103 @@ export async function prTrigger(octokit: Octokit, projectId: number) {
       return null
     }
 
-    issues.forEach(async (issueNumber) => {
-      coreInfo(`Processing issue #${issueNumber} `)
+    for (const issueNumber of issues) {
+      try {
+        coreInfo(`Processing issue #${issueNumber} `)
 
-      const projectItem = await queryIssueInProjectV2Items(
-        octokit,
-        owner,
-        repo,
-        projectNodeId,
-        issueNumber,
-      )
-
-      coreInfo(`Project item: ${JSON.stringify(projectItem, null, 2)}`)
-
-      if (projectItem.isInProject) {
-        coreInfo(
-          `Issue #${issueNumber} already in project node id: ${projectNodeId}, item id: ${projectItem?.item?.node_id}`,
-        )
-
-        if (!projectItem?.item?.node_id) {
-          coreError('未找到 project item id')
-          return
-        }
-
-        const repoField = await queryProjectField(
-          project,
-          repoFields[repo as RepoKey].field,
-        )
-        const fieldId = repoField?.id
-        if (!fieldId) {
-          coreError('未找到 fieldId')
-          return
-        }
-
-        const needToDoOptionId = await queryFieldsSingleSelectOptionId(
-          repoField.options,
-          issueFieldType.needToDo,
-        )
-
-        const inProgressOptionId = await queryFieldsSingleSelectOptionId(
-          repoField.options,
-          issueFieldType.inProgress,
-        )
-
-        const finishedOptionId = await queryFieldsSingleSelectOptionId(
-          repoField.options,
-          issueFieldType.finished,
-        )
-
-        if (!needToDoOptionId || !inProgressOptionId || !finishedOptionId) {
-          coreError('未找到所需的选项ID')
-          return
-        }
-
-        let singleSelectOptionId = { singleSelectOptionId: '' }
-        // 判断具体状态
-        if (eventAction === 'opened') {
-          coreInfo('PR被打开')
-          singleSelectOptionId = { singleSelectOptionId: inProgressOptionId }
-        }
-        else if (eventAction === 'closed' && isMerged) {
-          coreInfo('PR被合并')
-          singleSelectOptionId = { singleSelectOptionId: finishedOptionId }
-        }
-        else if (eventAction === 'closed' && !isMerged) {
-          coreInfo('PR被关闭但未合并')
-          singleSelectOptionId = { singleSelectOptionId: needToDoOptionId }
-        }
-        else if (eventAction === 'reopened') {
-          singleSelectOptionId = { singleSelectOptionId: inProgressOptionId }
-          coreInfo('PR被重新打开')
-        }
-        else {
-          coreInfo(`未匹配到事件: ${eventAction}`)
-        }
-
-        updateSingleSelectOptionField(
+        const projectItem = await queryIssueInProjectV2Items(
           octokit,
+          owner,
+          repo,
           projectNodeId,
-          projectItem?.item?.node_id,
-          fieldId,
-          singleSelectOptionId,
+          issueNumber,
         )
+
+        coreInfo(`Project item: ${JSON.stringify(projectItem, null, 2)}`)
+
+        if (projectItem.isInProject) {
+          coreInfo(
+            `Issue #${issueNumber} already in project node id: ${projectNodeId}, item id: ${projectItem?.item?.node_id}`,
+          )
+
+          if (!projectItem?.item?.node_id) {
+            coreError('未找到 project item id')
+            continue
+          }
+
+          const repoField = await queryProjectField(
+            project,
+            repoFields[repo as RepoKey].field,
+          )
+          const fieldId = repoField?.id
+          if (!fieldId) {
+            coreError('未找到 fieldId')
+            continue
+          }
+
+          const needToDoOptionId = await queryFieldsSingleSelectOptionId(
+            repoField.options,
+            issueFieldType.needToDo,
+          )
+
+          const inProgressOptionId = await queryFieldsSingleSelectOptionId(
+            repoField.options,
+            issueFieldType.inProgress,
+          )
+
+          const finishedOptionId = await queryFieldsSingleSelectOptionId(
+            repoField.options,
+            issueFieldType.finished,
+          )
+
+          if (!needToDoOptionId || !inProgressOptionId || !finishedOptionId) {
+            coreError('未找到所需的选项ID')
+            continue
+          }
+
+          let singleSelectOptionId = { singleSelectOptionId: '' }
+          // 判断具体状态
+          if (eventAction === 'opened') {
+            coreInfo('PR被打开')
+            singleSelectOptionId = { singleSelectOptionId: inProgressOptionId }
+          }
+          else if (eventAction === 'closed' && isMerged) {
+            coreInfo('PR被合并')
+            singleSelectOptionId = { singleSelectOptionId: finishedOptionId }
+          }
+          else if (eventAction === 'closed' && !isMerged) {
+            coreInfo('PR被关闭但未合并')
+            singleSelectOptionId = { singleSelectOptionId: needToDoOptionId }
+          }
+          else if (eventAction === 'reopened') {
+            singleSelectOptionId = { singleSelectOptionId: inProgressOptionId }
+            coreInfo('PR被重新打开')
+          }
+          else {
+            coreInfo(`未匹配到事件: ${eventAction}`)
+          }
+
+          try {
+            await updateSingleSelectOptionField(
+              octokit,
+              projectNodeId,
+              projectItem?.item?.node_id,
+              fieldId,
+              singleSelectOptionId,
+            )
+          }
+          catch (error) {
+            const errorMessage = error instanceof Error ? error.message : String(error)
+            coreError(`Failed to update single select option field for issue #${issueNumber}: ${errorMessage}`)
+            continue
+          }
+        }
       }
-    })
+      catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error)
+        coreError(`Failed to process issue #${issueNumber}: ${errorMessage}`)
+      }
+    }
   }
   catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error)

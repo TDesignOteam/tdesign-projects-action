@@ -3,4 +3,4 @@ default.check-filename = true
 [default.extend-words]
 
 [files]
-extend-exclude = []
+extend-exclude = [ "dist" ]

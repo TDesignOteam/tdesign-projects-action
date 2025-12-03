@@ -1,3 +1,27 @@
+/**
+ * Label 触发器
+ *
+ * 用途: 根据 issue 标签变化自动管理 GitHub Project V2 中的条目和字段
+ *
+ * 功能说明:
+ * 1. 监听 issue 标签的添加/移除事件
+ * 2. 当移除 'unconfirmed' 标签时，自动将 issue 添加到项目并设置为待办状态
+ * 3. 根据不同标签自动更新项目字段:
+ *    - 'to be published': 更新为已完成状态
+ *    - bug/enhancement/其他分类标签: 更新为待办状态
+ * 4. 自动填充项目字段(框架、设备、组件分类、问题分类等)
+ *
+ * 触发条件:
+ * - issue 标签发生变化(labeled/unlabeled)
+ * - 包含特定标签: 'to be published', 'unconfirmed', bug/enhancement 等分类标签
+ *
+ * 项目字段管理:
+ * - 框架字段: 根据仓库自动设置(Vue/React/微信小程序等)
+ * - Device 字段: 根据仓库类型设置
+ * - 组件分类: 从 issue 标题 [组件名] 中提取
+ * - 问题分类: 根据标签映射到对应的分类选项
+ */
+
 import type { AddProjectV2ItemResult, Octokit, ProjectV2 } from '../types/index'
 import type {
   RepoKey,

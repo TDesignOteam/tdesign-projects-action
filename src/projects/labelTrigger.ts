@@ -6,6 +6,7 @@ import { context } from '@actions/github'
 import {
   issueFieldOptions,
   issueFieldType,
+  LABELS,
   repoFields,
 } from '../utils'
 import { coreError, coreInfo, coreWarning } from '../utils/coreAlias'
@@ -16,8 +17,6 @@ import { queryProjectField } from '../utils/github/shared/queryProjectField'
 import { queryProjectNodeId } from '../utils/github/shared/queryProjectNodeId'
 import { updateSingleSelectOptionField } from '../utils/github/updates/updateField'
 
-const UNCONFIRMED_LABEL = '🧐 unconfirmed'
-
 function toLogSafe(text: string): string {
   return text.replace(/[\uD800-\uDBFF][\uDC00-\uDFFF]/g, '[emoji]')
 }
@@ -26,12 +25,15 @@ function formatLabelsForLog(labels: string[]): string {
   return labels.map(toLogSafe).join(', ')
 }
 
-const UNCONFIRMED_LABEL_LOG = toLogSafe(UNCONFIRMED_LABEL)
+const UNCONFIRMED_LABEL_LOG = toLogSafe(LABELS.UNCONFIRMED)
 // 类型声明
 interface LabelStatus {
   isShouldNeedTodo: boolean
   isToBePublished: boolean
   isUnconfirmed: boolean
+  isBug: boolean
+  isEnhancement: boolean
+  isContinue: boolean
 }
 
 interface BuildFieldUpdatesParams {
@@ -60,15 +62,25 @@ function getLabelStatus(labels: string[]): LabelStatus {
   const isShouldNeedTodo = labels.some(
     (name: string) => name in issueFieldOptions,
   )
-  const isToBePublished = labels.includes('to be published')
-  const isUnconfirmed = labels.includes(UNCONFIRMED_LABEL)
+  const isToBePublished = labels.includes(LABELS.TO_BE_PUBLISHED)
+  const isUnconfirmed = labels.includes(LABELS.UNCONFIRMED)
+  const isBug = labels.includes(LABELS.BUG)
+  const isEnhancement = labels.includes(LABELS.ENHANCEMENT)
+  const isContinue = isToBePublished || isUnconfirmed || isShouldNeedTodo || isBug || isEnhancement
+
   return {
     isShouldNeedTodo,
     isToBePublished,
     isUnconfirmed,
+    isBug,
+    isEnhancement,
+    isContinue,
   }
 }
 
+/**
+ * 确定是否移除 unconfirmed 标签操作
+ */
 function getIsUnconfirmedRemoved(
   eventAction: string,
   eventLabel: EventLabel,
@@ -77,10 +89,9 @@ function getIsUnconfirmedRemoved(
     return false
   }
 
-  const labelName
-    = typeof eventLabel === 'string' ? eventLabel : eventLabel?.name || ''
+  const labelName = typeof eventLabel === 'string' ? eventLabel : eventLabel?.name
 
-  return labelName === UNCONFIRMED_LABEL
+  return labelName === LABELS.UNCONFIRMED
 }
 
 /**
@@ -295,6 +306,9 @@ export async function labelTrigger(octokit: Octokit, projectId: number) {
     )
   }
 
+  /**
+   * 判断是否移除 unconfirmed 标签的操作
+   */
   const isUnconfirmedRemoved = getIsUnconfirmedRemoved(eventAction, eventLabel)
 
   // 获取当前 issue 的所有标签
@@ -311,16 +325,12 @@ export async function labelTrigger(octokit: Octokit, projectId: number) {
     coreInfo(`标签: ${toLogSafe(label.name)}`)
     return label.name
   })
-  const { isShouldNeedTodo, isToBePublished, isUnconfirmed }
-    = getLabelStatus(currentLabels)
+  const { isContinue, isUnconfirmed, isToBePublished, isShouldNeedTodo } = getLabelStatus(currentLabels)
 
   // 判断是否需要继续处理
-  const shouldNext
-    = isShouldNeedTodo
-      || isToBePublished
-      || isUnconfirmed
-      || isUnconfirmedRemoved
-  if (!shouldNext) {
+  const shouldContinue = isContinue || isUnconfirmedRemoved
+
+  if (!shouldContinue && isUnconfirmed) {
     coreError(`${formatLabelsForLog(currentLabels)} 不符合处理条件，跳过处理`)
     return
   }
@@ -389,12 +399,26 @@ export async function labelTrigger(octokit: Octokit, projectId: number) {
   let frameSingleSelectOptionId: string | null = null
   switch (operationType) {
     case 'ADD_TO_PROJECT':
-      projectItemId = await addIssueToProject(
-        octokit,
-        projectNodeId,
-        issueNodeId,
-        issue_number,
-      )
+      try {
+        projectItemId = await addIssueToProject(
+          octokit,
+          projectNodeId,
+          issueNodeId,
+          issue_number,
+        )
+        if (!projectItemId) {
+          coreError(
+            `addIssueToProject 返回空值，参数: projectNodeId=${projectNodeId}, issueNodeId=${issueNodeId}, issue_number=${issue_number}`,
+          )
+          return
+        }
+      }
+      catch (err) {
+        coreError(
+          `添加 issue ${issue_number} 到项目失败: ${(err as Error).message}`,
+        )
+        return
+      }
       frameSingleSelectOptionId = needToDoOptionId
       break
 
@@ -428,20 +452,30 @@ export async function labelTrigger(octokit: Octokit, projectId: number) {
     return
   }
   if (!projectItemId) {
-    coreError('projectItemId 为空，无法更新项目字段')
+    coreError(
+      `projectItemId 为空，无法更新项目字段。操作类型: ${operationType}, issue_number: ${issue_number}, 项目查询结果: ${JSON.stringify(projectItem)}`,
+    )
     return
   }
 
   // 组装并应用所有字段更新
-  await updateProjectFields({
-    octokit,
-    projectNodeId,
-    projectItemId,
-    project,
-    repoKey,
-    frameFieldId,
-    frameSingleSelectOptionId,
-    issueDetail,
-    currentLabels,
-  })
+  try {
+    await updateProjectFields({
+      octokit,
+      projectNodeId,
+      projectItemId,
+      project,
+      repoKey,
+      frameFieldId,
+      frameSingleSelectOptionId,
+      issueDetail,
+      currentLabels,
+    })
+  }
+  catch (err) {
+    coreError(
+      `更新项目字段失败: ${(err as Error).message}, projectItemId: ${projectItemId}`,
+    )
+    throw err
+  }
 }

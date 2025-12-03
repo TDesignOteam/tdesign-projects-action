@@ -1,3 +1,29 @@
+/**
+ * Pull Request 触发器
+ *
+ * 用途: 根据 PR 状态变化自动更新关联 issue 在 GitHub Project V2 中的状态
+ *
+ * 功能说明:
+ * 1. 监听 PR 的打开、关闭、合并、重新打开等事件
+ * 2. 从 PR 的多个位置提取关联的 issue 编号:
+ *    - PR 标题和描述
+ *    - 提交信息(commit messages)
+ *    - PR 评论(comments)
+ *    - PR 审查评论(review comments)
+ * 3. 根据 PR 状态自动更新关联 issue 在项目中的状态:
+ *    - PR opened: 设置为进行中(In Progress)
+ *    - PR merged: 设置为已完成(Finished)
+ *    - PR closed(未合并): 恢复为待办(To Do)
+ *    - PR reopened: 设置为进行中(In Progress)
+ *
+ * Issue 识别格式:
+ * - #123: 同仓库的 issue 引用
+ * - owner/repo#123: 跨仓库的 issue 引用
+ * - https://github.com/owner/repo/issues/123: 完整 URL 引用
+ *
+ * 注意: 只处理当前仓库的 issue,跨仓库引用会被过滤
+ */
+
 import type { Octokit } from '../types'
 import type { RepoKey } from '../utils'
 import { context } from '@actions/github'

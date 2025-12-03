@@ -1,3 +1,19 @@
+/**
+ * Issue 触发器
+ *
+ * 用途: 自动管理 GitHub Project V2 中的 issue 条目
+ *
+ * 功能说明:
+ * 1. 监听 issue 状态变化事件
+ * 2. 当 issue 被关闭且不包含 'to be published' 标签时，自动从项目看板中移除
+ * 3. 保持项目看板整洁，避免已关闭的无关 issue 堆积
+ *
+ * 触发条件:
+ * - issue 状态为 closed
+ * - issue 不包含 'to be published' 标签
+ * - issue 存在于指定的 Project V2 中
+ */
+
 import type { Octokit } from '../types'
 import { context } from '@actions/github'
 import {

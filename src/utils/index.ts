@@ -49,3 +49,13 @@ export const issueFieldOptions = {
   '🐣 new component': 'New Component',
   'question': 'Question',
 } as const
+
+/**
+ * 主要标签类型
+ */
+export const LABELS = {
+  UNCONFIRMED: '🧐 unconfirmed',
+  TO_BE_PUBLISHED: 'to be published',
+  BUG: '🐞 bug',
+  ENHANCEMENT: '💪🏻 enhancement',
+} as const

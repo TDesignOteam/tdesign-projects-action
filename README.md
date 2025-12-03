@@ -2,7 +2,7 @@
 
 ## 项目简介
 
-`tdesign-projects-action` 是一个专门用来供 [TDesgin](https://github.com/Tencent/tdesign) 来管理 Project 的 GitHub Action，用于在项目管理中自动处理 Issue 和 Pull Request（PR）。
+`tdesign-projects-action` 是一个专门用来供 [TDesign](https://github.com/Tencent/tdesign) 来管理 Project 的 GitHub Action，用于在项目管理中自动处理 Issue 和 Pull Request（PR）。
 通过配置不同的触发器，可以实现以下功能：
 
 1. 根据状态自动将 issue 从 Project 移除。

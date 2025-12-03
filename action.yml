@@ -18,5 +18,5 @@ inputs:
     description: The ID of the project to which the issue will be added.
 
 runs:
-  using: node20
-  main: dist/index.js
+  using: node24
+  main: dist/index.mjs

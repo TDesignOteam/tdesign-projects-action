@@ -83,7 +83,9 @@ function getIsUnconfirmedRemoved(
   return labelName === UNCONFIRMED_LABEL
 }
 
-// 组装字段更新
+/**
+ * 构建字段更新列表
+ */
 async function buildFieldUpdates({
   project,
   repoKey,

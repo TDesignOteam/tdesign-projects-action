@@ -34,6 +34,7 @@ import {
   repoFields,
 } from '../utils'
 import { coreError, coreInfo, coreWarning } from '../utils/coreAlias'
+import { getComponentName } from '../utils/getComponentName'
 import { queryIssueInProjectV2Items } from '../utils/github/query/queryIssueInProjectV2Items'
 import { getOrgProjectV2 } from '../utils/github/query/queryOrgProjectV2'
 import { queryFieldsSingleSelectOptionId } from '../utils/github/shared/queryFieldsSingleSelectOptionId'
@@ -154,7 +155,7 @@ async function buildFieldUpdates({
 
   // 组件分类字段
   const issueTitle = issueDetail.title
-  const componentName = /\[(.*?)\]/.exec(issueTitle)?.[1] || ''
+  const componentName = getComponentName(issueTitle)
   if (componentName) {
     const componentField = await queryProjectField(project, '组件分类')
     const componentFieldId = componentField?.id

@@ -26,82 +26,135 @@ import { queryIssueInProjectV2Items } from '../utils/github/query/queryIssueInPr
 import { getOrgProjectV2 } from '../utils/github/query/queryOrgProjectV2'
 import { queryProjectNodeId } from '../utils/github/shared/queryProjectNodeId'
 
+const TARGET_LABEL = 'to be published'
+
+type IssueDetail = Awaited<ReturnType<Octokit['rest']['issues']['get']>>['data']
+type IssueLabels = IssueDetail['labels']
+
+/**
+ * 检查 issue 是否包含指定标签
+ */
+function hasLabel(labels: IssueLabels, targetLabel: string): boolean {
+  return labels.some((label) => {
+    const labelName = typeof label === 'string' ? label : label.name
+    return labelName === targetLabel
+  })
+}
+
 export async function issueTrigger(octokit: Octokit, projectId: number) {
+  const { owner, repo, number: issue_number } = context.issue
+
+  // 1. 获取 issue 详情
+  let issueState: string
+  let issueLabels: IssueLabels
   try {
-    const { owner, repo, number: issue_number } = context.issue
-    // 获取 issue 详情
-    const { data: issueDetail } = await octokit.rest.issues.get({
+    const { data } = await octokit.rest.issues.get({
       owner,
       repo,
       issue_number,
     })
-
-    const hasTargetLabel = issueDetail.labels.some((label) => {
-      if (typeof label === 'string') {
-        coreInfo(`label: ${label}`)
-        return label === 'to be published'
-      }
-      coreInfo(`label: ${label.name}`)
-      return label.name === 'to be published'
-    })
-    if (issueDetail.state === 'open') {
-      coreNotice(`成功创建 issue ${issue_number} `)
-      return
-    }
-
-    if (issueDetail.state === 'closed' && !hasTargetLabel) {
-      const project = await getOrgProjectV2(octokit, owner, projectId)
-      if (!project) {
-        coreError('未提供 Project 对象')
-        return null
-      }
-
-      const projectNodeId = await queryProjectNodeId(project)
-      if (!projectNodeId) {
-        coreError('未提供 Project Node ID')
-        return null
-      }
-
-      const projectItems = await queryIssueInProjectV2Items(
-        octokit,
-        owner,
-        repo,
-        projectNodeId,
-        issue_number,
-      )
-
-      if (!projectItems.isInProject) {
-        coreWarning(`issue ${issue_number} 不在项目中`)
-        return
-      }
-
-      coreInfo(
-        `即将将 issue ${issue_number} (node ID: ${projectItems.item?.node_id}) 从项目 ${projectNodeId} 中移除`,
-      )
-
-      await octokit.graphql(
-        `
-          mutation RemoveFromProject($projectId: ID!, $itemId: ID!) {
-            deleteProjectV2Item(input: { projectId: $projectId, itemId: $itemId }) {
-              deletedItemId
-            }
-          }
-        `,
-        {
-          projectId: projectNodeId,
-          itemId: projectItems.item?.node_id,
-        },
-      )
-      coreInfo(
-        `已将 issue ${issue_number} (node ID: ${projectItems.item?.node_id}) 从项目中移除`,
-      )
-    }
-
-    coreError(`未匹配到事件，当前 issue 状态为: ${issueDetail.state}`)
+    issueState = data.state
+    issueLabels = data.labels
   }
   catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error)
-    coreError(`Error checking issue: ${errorMessage}`)
-    return false
+    coreError(`获取 issue 详情失败: ${errorMessage}`)
+    return
+  }
+
+  // 2. 处理 open 状态
+  if (issueState === 'open') {
+    coreNotice(`成功创建 issue ${issue_number}`)
+    return
+  }
+
+  // 3. 处理 closed 状态（带 target label 的跳过）
+  if (issueState !== 'closed') {
+    coreInfo(`未匹配到事件，当前 issue 状态为: ${issueState}`)
+    return
+  }
+
+  if (hasLabel(issueLabels, TARGET_LABEL)) {
+    coreInfo(`issue ${issue_number} 包含 '${TARGET_LABEL}' 标签，跳过移除`)
+    return
+  }
+
+  // 4. 获取 Project 信息
+  let project
+  try {
+    project = await getOrgProjectV2(octokit, owner, projectId)
+    if (!project) {
+      coreError('未提供 Project 对象')
+      return
+    }
+  }
+  catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    coreError(`获取 Project 信息失败: ${errorMessage}`)
+    return
+  }
+
+  // 5. 获取 Project Node ID
+  let projectNodeId: string
+  try {
+    const nodeId = await queryProjectNodeId(project)
+    if (!nodeId) {
+      coreError('未查询到 Project Node ID')
+      return
+    }
+    projectNodeId = nodeId
+  }
+  catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    coreError(`查询 Project Node ID 失败: ${errorMessage}`)
+    return
+  }
+
+  // 6. 检查 issue 是否在项目中
+  let itemNodeId: string
+  try {
+    const projectItems = await queryIssueInProjectV2Items(
+      octokit,
+      owner,
+      repo,
+      projectNodeId,
+      issue_number,
+    )
+
+    if (!projectItems.isInProject || !projectItems.item?.node_id) {
+      coreWarning(`issue ${issue_number} 不在项目中`)
+      return
+    }
+    itemNodeId = projectItems.item.node_id
+  }
+  catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    coreError(`查询 issue 项目状态失败: ${errorMessage}`)
+    return
+  }
+
+  // 7. 从项目中移除 issue
+  try {
+    coreInfo(`即将将 issue ${issue_number} (node ID: ${itemNodeId}) 从项目 ${projectNodeId} 中移除`)
+
+    await octokit.graphql(
+      `
+        mutation RemoveFromProject($projectId: ID!, $itemId: ID!) {
+          deleteProjectV2Item(input: { projectId: $projectId, itemId: $itemId }) {
+            deletedItemId
+          }
+        }
+      `,
+      {
+        projectId: projectNodeId,
+        itemId: itemNodeId,
+      },
+    )
+
+    coreInfo(`已将 issue ${issue_number} (node ID: ${itemNodeId}) 从项目中移除`)
+  }
+  catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    coreError(`从项目移除 issue 失败: ${errorMessage}`)
   }
 }

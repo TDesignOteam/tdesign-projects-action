@@ -36,42 +36,38 @@ import { queryProjectField } from '../utils/github/shared/queryProjectField'
 import { queryProjectNodeId } from '../utils/github/shared/queryProjectNodeId'
 import { updateSingleSelectOptionField } from '../utils/github/updates/updateField'
 
-/*
- * @description 只匹配当前仓库的 issue
+/**
+ * 从文本中提取当前仓库的 issue 编号
  */
-
 function extractIssueNumber(
   extractBody: string,
   owner: string,
   repo: string,
 ): number[] {
-  // 使用正则表达式匹配 #123、owner/repo#123、https://github.com/owner/repo/issues/123 格式
-  const issueRegex
-    = /(\w[\w-]*)\/(\w[\w-]*)#(\d+)|#(\d+)|(https?:\/\/github\.com\/(\w[\w-]*)\/(\w[\w-]*)\/issues\/(\d+))/g
-
   const issuesSet = new Set<number>()
-  let match: RegExpExecArray | null
 
-  match = issueRegex.exec(extractBody)
-  while (match !== null) {
-    if (match[3]) {
-      // owner/repo#123 格式
-      if (match[1] === owner && match[2] === repo) {
-        issuesSet.add(Number(match[3]))
-      }
+  // 匹配 owner/repo#123 格式
+  const crossRepoRegex = /(\w[\w-]*)\/(\w[\w-]*)#(\d+)/g
+  for (const match of extractBody.matchAll(crossRepoRegex)) {
+    if (match[1] === owner && match[2] === repo) {
+      issuesSet.add(Number(match[3]))
     }
-    else if (match[4]) {
-      // #123 格式
-      issuesSet.add(Number(match[4]))
-    }
-    else if (match[8]) {
-      // https://github.com/owner/repo/issues/123 格式
-      if (match[6] === owner && match[7] === repo) {
-        issuesSet.add(Number(match[8]))
-      }
-    }
-    match = issueRegex.exec(extractBody)
   }
+
+  // 匹配 https://github.com/owner/repo/issues/123 格式
+  const urlRegex = /https?:\/\/github\.com\/(\w[\w-]*)\/(\w[\w-]*)\/issues\/(\d+)/g
+  for (const match of extractBody.matchAll(urlRegex)) {
+    if (match[1] === owner && match[2] === repo) {
+      issuesSet.add(Number(match[3]))
+    }
+  }
+
+  // 匹配独立的 #123 格式（排除已匹配的 owner/repo#123）
+  const simpleRegex = /(?<![/\w-])#(\d+)/g
+  for (const match of extractBody.matchAll(simpleRegex)) {
+    issuesSet.add(Number(match[1]))
+  }
+
   return Array.from(issuesSet)
 }
 
@@ -86,38 +82,82 @@ interface PRDetailsQueryResult {
       title: string
       body: string
       commits: {
-        nodes: Array<{
-          commit: {
-            message: string
-          }
-        }>
+        nodes: Array<{ commit: { message: string } }>
       }
       reviews: {
         nodes: Array<{
           body: string
-          comments: {
-            nodes: Array<{
-              body: string
-            }>
-          }
+          comments: { nodes: Array<{ body: string }> }
         }>
       }
       comments: {
-        nodes: Array<{
-          body: string
-        }>
+        nodes: Array<{ body: string }>
       }
     } | null
   } | null
 }
 
+/**
+ * 从 PR 详情中提取所有相关文本
+ */
+function extractPRTexts(pr: NonNullable<PRDetailsQueryResult['repository']>['pullRequest'] | undefined): string {
+  if (!pr)
+    return ''
+
+  const texts = [
+    pr.title,
+    pr.body,
+    ...pr.commits.nodes.map(n => n.commit.message),
+    ...pr.reviews.nodes.map(r => r.body),
+    ...pr.reviews.nodes.flatMap(r => r.comments.nodes.map(c => c.body)),
+    ...pr.comments.nodes.map(c => c.body),
+  ]
+
+  return texts.filter(Boolean).join('\n')
+}
+
+/**
+ * PR 事件到 issue 状态的映射
+ */
+type PREventKey = 'opened' | 'merged' | 'closed' | 'reopened'
+
+function getPREventKey(eventAction: string, isMerged: boolean): PREventKey | null {
+  if (eventAction === 'opened')
+    return 'opened'
+  if (eventAction === 'closed' && isMerged)
+    return 'merged'
+  if (eventAction === 'closed' && !isMerged)
+    return 'closed'
+  if (eventAction === 'reopened')
+    return 'reopened'
+  return null
+}
+
+const PR_EVENT_STATUS_MAP: Record<PREventKey, { status: keyof typeof issueFieldType, message: string }> = {
+  opened: { status: 'inProgress', message: 'PR被打开' },
+  merged: { status: 'finished', message: 'PR被合并' },
+  closed: { status: 'needToDo', message: 'PR被关闭但未合并' },
+  reopened: { status: 'inProgress', message: 'PR被重新打开' },
+}
+
 export async function prTrigger(octokit: Octokit, projectId: number) {
   const { owner, repo } = context.repo
   const prNumber = context.payload.pull_request?.number
+  const eventAction = context.payload.action ?? ''
+  const isMerged = context.payload.pull_request?.merged ?? false
 
-  const eventAction = context.payload.action
-  const isMerged = context.payload.pull_request?.merged
+  // 确定事件类型
+  const eventKey = getPREventKey(eventAction, isMerged)
+  if (!eventKey) {
+    coreInfo(`未匹配到事件: eventAction: ${eventAction}, isMerged: ${isMerged}`)
+    return
+  }
 
+  const { status, message } = PR_EVENT_STATUS_MAP[eventKey]
+  coreInfo(message)
+
+  // 1. 获取 PR 详情并提取关联 issues
+  let issues: number[]
   try {
     const query = `
       query GetPRDetails($owner: String!, $repo: String!, $prNumber: Int!) {
@@ -126,31 +166,18 @@ export async function prTrigger(octokit: Octokit, projectId: number) {
             title
             body
             commits(first: 100) {
-              nodes {
-                commit {
-                  message
-                }
-              }
+              nodes { commit { message } }
             }
             reviews(last: 100) {
               nodes {
                 body
-                comments(first: 100) {
-                  nodes {
-                    body
-                  }
-                }
+                comments(first: 100) { nodes { body } }
               }
             }
-            comments(first: 100) {
-              nodes {
-                body
-              }
-            }
+            comments(first: 100) { nodes { body } }
           }
         }
-      }
-      `
+      }`
 
     const result = await octokit.graphql<PRDetailsQueryResult>(query, {
       owner,
@@ -158,137 +185,143 @@ export async function prTrigger(octokit: Octokit, projectId: number) {
       prNumber,
     })
 
-    const prResultMessageStr = `
-     ${result.repository?.pullRequest?.title || ''}
-      ${result.repository?.pullRequest?.body || ''}
-      ${result.repository?.pullRequest?.commits.nodes.map(commit => commit.commit.message).join('\n') || ''}
-      ${result.repository?.pullRequest?.reviews.nodes.map(review => review.body).join('\n') || ''}
-      ${result.repository?.pullRequest?.reviews.nodes.flatMap(review => review.comments.nodes.map(comment => comment.body)).join('\n') || ''}
-      ${result.repository?.pullRequest?.comments.nodes.map(comment => comment.body).join('\n') || ''}
-    `
+    const prTexts = extractPRTexts(result.repository?.pullRequest)
+    issues = extractIssueNumber(prTexts, owner, repo)
 
-    const issues = extractIssueNumber(prResultMessageStr, owner, repo)
+    coreInfo(`PR #${prNumber} linked issues: ${issues.join(', ')}`)
 
     if (issues.length === 0) {
       coreWarning(`未找到关联的 issue!`)
       return
     }
-    coreInfo(`PR #${prNumber} linked issues: ${issues.join(', ')}`)
+  }
+  catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    coreError(`获取 PR 详情失败: ${errorMessage}`)
+    return
+  }
 
-    const project = await getOrgProjectV2(octokit, owner, projectId)
-
+  // 2. 获取 Project 信息
+  let project
+  try {
+    project = await getOrgProjectV2(octokit, owner, projectId)
     if (!project) {
       coreError('未提供 Project 对象')
-      return null
-    }
-
-    const projectNodeId = await queryProjectNodeId(project)
-
-    if (!projectNodeId) {
-      coreError('未查询到 project ID')
-      return null
-    }
-
-    for (const issueNumber of issues) {
-      try {
-        coreInfo(`Processing issue #${issueNumber} `)
-
-        const projectItem = await queryIssueInProjectV2Items(
-          octokit,
-          owner,
-          repo,
-          projectNodeId,
-          issueNumber,
-        )
-
-        coreInfo(`Project item: ${JSON.stringify(projectItem, null, 2)}`)
-
-        if (projectItem.isInProject) {
-          coreInfo(
-            `Issue #${issueNumber} already in project node id: ${projectNodeId}, item id: ${projectItem?.item?.node_id}`,
-          )
-
-          if (!projectItem?.item?.node_id) {
-            coreError('未找到 project item id')
-            continue
-          }
-
-          const repoField = await queryProjectField(
-            project,
-            repoFields[repo as RepoKey].field,
-          )
-          const fieldId = repoField?.id
-          if (!fieldId) {
-            coreError('未找到 fieldId')
-            continue
-          }
-
-          const needToDoOptionId = await queryFieldsSingleSelectOptionId(
-            repoField.options,
-            issueFieldType.needToDo,
-          )
-
-          const inProgressOptionId = await queryFieldsSingleSelectOptionId(
-            repoField.options,
-            issueFieldType.inProgress,
-          )
-
-          const finishedOptionId = await queryFieldsSingleSelectOptionId(
-            repoField.options,
-            issueFieldType.finished,
-          )
-
-          if (!needToDoOptionId || !inProgressOptionId || !finishedOptionId) {
-            coreError('未找到所需的选项ID')
-            continue
-          }
-
-          let singleSelectOptionId = { singleSelectOptionId: '' }
-          // 判断具体状态
-          if (eventAction === 'opened') {
-            coreInfo('PR被打开')
-            singleSelectOptionId = { singleSelectOptionId: inProgressOptionId }
-          }
-          else if (eventAction === 'closed' && isMerged) {
-            coreInfo('PR被合并')
-            singleSelectOptionId = { singleSelectOptionId: finishedOptionId }
-          }
-          else if (eventAction === 'closed' && !isMerged) {
-            coreInfo('PR被关闭但未合并')
-            singleSelectOptionId = { singleSelectOptionId: needToDoOptionId }
-          }
-          else if (eventAction === 'reopened') {
-            singleSelectOptionId = { singleSelectOptionId: inProgressOptionId }
-            coreInfo('PR被重新打开')
-          }
-          else {
-            coreInfo(`未匹配到事件: ${eventAction}`)
-          }
-
-          try {
-            await updateSingleSelectOptionField(
-              octokit,
-              projectNodeId,
-              projectItem?.item?.node_id,
-              fieldId,
-              singleSelectOptionId,
-            )
-          }
-          catch (error) {
-            const errorMessage = error instanceof Error ? error.message : String(error)
-            coreError(`Failed to update single select option field for issue #${issueNumber}: ${errorMessage}`)
-            continue
-          }
-        }
-      }
-      catch (error) {
-        const errorMessage = error instanceof Error ? error.message : String(error)
-        coreError(`Failed to process issue #${issueNumber}: ${errorMessage}`)
-      }
+      return
     }
   }
   catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error)
-    coreError(`Failed to get linked issues: ${errorMessage}`)
+    coreError(`获取 Project 信息失败: ${errorMessage}`)
+    return
+  }
+
+  // 3. 获取 Project Node ID
+  let projectNodeId: string
+  try {
+    const nodeId = await queryProjectNodeId(project)
+    if (!nodeId) {
+      coreError('未查询到 project ID')
+      return
+    }
+    projectNodeId = nodeId
+  }
+  catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    coreError(`查询 Project Node ID 失败: ${errorMessage}`)
+    return
+  }
+
+  // 4. 获取字段配置
+  let fieldId: string
+  let targetOptionId: string
+  try {
+    const repoField = await queryProjectField(project, repoFields[repo as RepoKey].field)
+    if (!repoField?.id) {
+      coreError('未找到 fieldId')
+      return
+    }
+    fieldId = repoField.id
+
+    const optionId = await queryFieldsSingleSelectOptionId(
+      repoField.options,
+      issueFieldType[status],
+    )
+    if (!optionId) {
+      coreError(`未找到状态选项ID: ${status}`)
+      return
+    }
+    targetOptionId = optionId
+  }
+  catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    coreError(`获取字段配置失败: ${errorMessage}`)
+    return
+  }
+
+  // 5. 处理每个关联的 issue
+  const updatePromises = issues.map(issueNumber => processIssue(
+    octokit,
+    owner,
+    repo,
+    projectNodeId,
+    issueNumber,
+    fieldId,
+    targetOptionId,
+  ))
+
+  const results = await Promise.allSettled(updatePromises)
+  const failedCount = results.filter(r => r.status === 'rejected').length
+  if (failedCount > 0) {
+    coreWarning(`${failedCount}/${issues.length} 个 issue 处理失败`)
+  }
+}
+
+async function processIssue(
+  octokit: Octokit,
+  owner: string,
+  repo: string,
+  projectNodeId: string,
+  issueNumber: number,
+  fieldId: string,
+  targetOptionId: string,
+) {
+  try {
+    coreInfo(`Processing issue #${issueNumber}`)
+
+    const projectItem = await queryIssueInProjectV2Items(
+      octokit,
+      owner,
+      repo,
+      projectNodeId,
+      issueNumber,
+    )
+
+    if (!projectItem.isInProject) {
+      coreInfo(`Issue #${issueNumber} not in project, skipping`)
+      return
+    }
+
+    const itemNodeId = projectItem.item?.node_id
+    if (!itemNodeId) {
+      coreError(`未找到 project item id for issue #${issueNumber}`)
+      return
+    }
+
+    coreInfo(`Issue #${issueNumber} in project, item id: ${itemNodeId}`)
+
+    await updateSingleSelectOptionField(
+      octokit,
+      projectNodeId,
+      itemNodeId,
+      fieldId,
+      { singleSelectOptionId: targetOptionId },
+    )
+
+    coreInfo(`Issue #${issueNumber} 状态更新成功`)
+  }
+  catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    coreError(`Failed to process issue #${issueNumber}: ${errorMessage}`)
   }
 }

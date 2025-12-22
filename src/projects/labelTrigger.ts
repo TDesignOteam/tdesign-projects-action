@@ -84,14 +84,16 @@ type EventLabel
 
 // 判断标签状态
 function getLabelStatus(labels: string[]): LabelStatus {
+  const isUnconfirmed = labels.includes(LABELS.UNCONFIRMED)
+
   const isShouldNeedTodo = labels.some(
     (name: string) => name in issueFieldOptions,
   )
   const isToBePublished = labels.includes(LABELS.TO_BE_PUBLISHED)
-  const isUnconfirmed = labels.includes(LABELS.UNCONFIRMED)
   const isBug = labels.includes(LABELS.BUG)
   const isEnhancement = labels.includes(LABELS.ENHANCEMENT)
-  const isContinue = isToBePublished || isUnconfirmed || isShouldNeedTodo || isBug || isEnhancement
+
+  const isContinue = isToBePublished || isShouldNeedTodo
 
   return {
     isShouldNeedTodo,
@@ -174,9 +176,7 @@ async function buildFieldUpdates({
   }
 
   // 问题分类字段
-  const issueTypeName = currentLabels.find((name: string) =>
-    Object.keys(issueFieldOptions).includes(name),
-  )
+  const issueTypeName = currentLabels.find((name: string) => name in issueFieldOptions)
   if (issueTypeName) {
     const issueTypeField = await queryProjectField(project, '问题分类')
     const issueTypeFieldId = issueTypeField?.id

@@ -36,6 +36,11 @@ import { queryProjectField } from '../utils/github/shared/queryProjectField'
 import { queryProjectNodeId } from '../utils/github/shared/queryProjectNodeId'
 import { updateSingleSelectOptionField } from '../utils/github/updates/updateField'
 
+// 正则表达式常量
+const CROSS_REPO_REGEX = /(\w[\w-]*)\/(\w[\w-]*)#(\d+)/g
+const URL_REGEX = /https?:\/\/github\.com\/(\w[\w-]*)\/(\w[\w-]*)\/issues\/(\d+)/g
+const SIMPLE_REGEX = /(?<![/\w-])#(\d+)/g
+
 /**
  * 从文本中提取当前仓库的 issue 编号
  */
@@ -47,28 +52,25 @@ function extractIssueNumber(
   const issuesSet = new Set<number>()
 
   // 匹配 owner/repo#123 格式
-  const crossRepoRegex = /(\w[\w-]*)\/(\w[\w-]*)#(\d+)/g
-  for (const match of extractBody.matchAll(crossRepoRegex)) {
+  for (const match of extractBody.matchAll(CROSS_REPO_REGEX)) {
     if (match[1] === owner && match[2] === repo) {
       issuesSet.add(Number(match[3]))
     }
   }
 
   // 匹配 https://github.com/owner/repo/issues/123 格式
-  const urlRegex = /https?:\/\/github\.com\/(\w[\w-]*)\/(\w[\w-]*)\/issues\/(\d+)/g
-  for (const match of extractBody.matchAll(urlRegex)) {
+  for (const match of extractBody.matchAll(URL_REGEX)) {
     if (match[1] === owner && match[2] === repo) {
       issuesSet.add(Number(match[3]))
     }
   }
 
   // 匹配独立的 #123 格式（排除已匹配的 owner/repo#123）
-  const simpleRegex = /(?<![/\w-])#(\d+)/g
-  for (const match of extractBody.matchAll(simpleRegex)) {
+  for (const match of extractBody.matchAll(SIMPLE_REGEX)) {
     issuesSet.add(Number(match[1]))
   }
 
-  return Array.from(issuesSet)
+  return [...issuesSet]
 }
 
 // function sanitizeStringForWindows(str: string): string {

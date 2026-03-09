@@ -42,8 +42,10 @@ import { queryProjectField } from '../utils/github/shared/queryProjectField'
 import { queryProjectNodeId } from '../utils/github/shared/queryProjectNodeId'
 import { updateSingleSelectOptionField } from '../utils/github/updates/updateField'
 
+const EMOJI_REGEX = /[\uD800-\uDBFF][\uDC00-\uDFFF]/
+
 function toLogSafe(text: string): string {
-  return text.replace(/[\uD800-\uDBFF][\uDC00-\uDFFF]/g, '[emoji]')
+  return text.replace(EMOJI_REGEX, '[emoji]')
 }
 
 function formatLabelsForLog(labels: string[]): string {

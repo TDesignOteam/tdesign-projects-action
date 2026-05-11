@@ -39,7 +39,7 @@
     "@types/node": "^24.12.2",
     "eslint": "^10.3.0",
     "eslint-plugin-format": "^2.0.1",
-    "lint-staged": "^16.4.0",
+    "lint-staged": "^17.0.4",
     "simple-git-hooks": "^2.13.1",
     "tsdown": "^0.21.10",
     "typescript": "^6.0.3"

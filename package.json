@@ -3,7 +3,7 @@
   "type": "module",
   "version": "0.0.3",
   "private": true,
-  "packageManager": "pnpm@10.33.2",
+  "packageManager": "pnpm@10.33.4",
   "description": "Only for TDesign's project management automation ci",
   "author": "TDesignOteam",
   "license": "MIT",
@@ -36,12 +36,12 @@
   },
   "devDependencies": {
     "@antfu/eslint-config": "^7.7.3",
-    "@types/node": "^24.12.2",
+    "@types/node": "^24.12.4",
     "eslint": "^10.3.0",
     "eslint-plugin-format": "^2.0.1",
     "lint-staged": "^16.4.0",
     "simple-git-hooks": "^2.13.1",
-    "tsdown": "^0.21.10",
+    "tsdown": "^0.22.0",
     "typescript": "^6.0.3"
   },
   "simple-git-hooks": {

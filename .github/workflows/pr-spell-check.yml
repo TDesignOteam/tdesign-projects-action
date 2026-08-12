@@ -2,5 +2,5 @@ name: pr-spell-check
 on: [pull_request]
 
 jobs:
-  check:
-    uses: TDesignOteam/workflows/.github/workflows/spell-check.yml@99b32e2c3f6ffb52719884e8e38ee94ce5d2bf52 # main
+  call-spell-check:
+    uses: TDesignOteam/workflows/.github/workflows/spell-check.yml@main
